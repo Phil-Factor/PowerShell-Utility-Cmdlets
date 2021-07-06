@@ -16,5 +16,5 @@ This is a repository for a collection of Cmdlets that I wrote only because I nee
 
 ## Import-Log
 
- [Import-Log](/Import-Log/Import-Log.ps1)  is a way of converting any log into a PowerShell object that allows you to sort and filter the log records. Want just the errors or warnings? This is the Cmdlet for you. I also provide log Regex strings for some Redgate products. Sadly, you’re going to need to adapt one of the samples to create the regex for any particular log because, for some wierd reason, nobody has ever established a common standard.
+ [Import-Log](/Import-Log/Import-Log.ps1)  is a way of converting any log into a PowerShell object that allows you to sort and filter the log records. Want just the errors or warnings? This is the Cmdlet for you. I also provide [sample log regexes](/Import-Log/SampleRegexes.ps1) for some Redgate products. Sadly, you’re going to need to adapt one of the samples to create the regex for any particular log because, for some wierd reason, nobody has ever established a common standard.
 
