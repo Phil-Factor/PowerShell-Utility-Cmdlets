@@ -149,7 +149,7 @@ function Diff-Objects
 				
 				catch
 				{ $TargetValue = $null; $SourceValue = $null; $TheMatch = '--' }
-				$_ | Select 	@{ Name = 'Name'; Expression = { "$Name" } },
+				$_ | Select 	@{ Name = 'Name'; Expression = { ".$Name" } },
 							@{ Name = 'Match'; Expression = { $TheMatch } },
 							@{ Name = 'SourceValue'; Expression = { $SourceValue } },
 							@{ Name = 'TargetValue'; Expression = { $TargetValue } }

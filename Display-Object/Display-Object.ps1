@@ -37,7 +37,8 @@ function Display-Object
 		[int]$CurrentDepth = 0
 	)
 	
-	if ($CurrentDepth -ge $Depth) { return; } #prevent runaway recursion
+	if (($CurrentDepth -ge $Depth) -or
+		($TheObject -eq $Null)) { return; } #prevent runaway recursion
 	$ObjectTypeName = $TheObject.GetType().Name #find out what type it is
 	if ($ObjectTypeName -in 'HashTable', 'OrderedDictionary')
 	{
@@ -45,7 +46,7 @@ function Display-Object
 		$TheObject = [pscustomObject]$TheObject;
 		$ObjectTypeName = 'PSCustomObject'
 	}
-	if ($ObjectTypeName -ne 'Object[]') #not a system array.
+	if (!($TheObject.Count -gt 1)) #not something that behaves like an array
 	{
 		# figure out where you get the names from
 		if ($ObjectTypeName -in @('PSCustomObject'))
@@ -61,9 +62,12 @@ function Display-Object
 			Catch { $Child = $null } # avoid crashing on write-only objects
 			if ($child -eq $null -or #is the current child a value or a null?
 				$child.GetType().BaseType.Name -eq 'ValueType' -or
-				$child.GetType().Name -eq 'String')
+				$child.GetType().Name -in @('String', 'String[]'))
 			{ [pscustomobject]@{ 'Path' = "$Parent.$($_.Name)"; 'Value' = $Child; } }
-			
+			elseif (($CurrentDepth + 1) -eq $Depth)
+			{
+				[pscustomobject]@{ 'Path' = "$Parent.$($_.Name)"; 'Value' = $Child; }
+			}
 			else #not a value but an object of some sort
 			{
 				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -Parent "$Parent.$($_.Name)" `
@@ -78,8 +82,12 @@ function Display-Object
 			$child = $TheObject[$_];
 			if (($child -eq $null) -or #is the current child a value or a null?
 				($child.GetType().BaseType.Name -eq 'ValueType') -or
-				($child.GetType().Name -eq 'String')) #if so display it 
+				($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
 			{ [pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; } }
+			elseif (($CurrentDepth + 1) -eq $Depth)
+			{
+				[pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; }
+			}
 			else #not a value but an object of some sort so do a recursive call
 			{
 				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `

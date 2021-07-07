@@ -17,12 +17,18 @@ have any value arrays, it doesn't bother to deal with that.
 	
 	.PARAMETER Avoid
 		a list of any object you wish to avoid comparing
-	
+
+	.PARAMETER Depth
+		The depth to which you wish to recurse
+
 	.PARAMETER Parent
+		Only used for recursion
+
+    .PARAMETER CurrentDepth
 		Only used for recursion
 	
 #>
-function Compare-SimilarObjects
+function Diff-Objects
 {
 	param
 	(
@@ -229,7 +235,7 @@ function Compare-SimilarObjects
 			if (($ItsAnObject) -or ($ItsAnArray))
 			{
 				#if it is an object or array on both sides
-				Compare-SimilarObjects $SourceValue $targetValue $Avoid "$Fullname" $Depth ($CurrentDepth + 1)
+				Diff-Objects $SourceValue $targetValue $Avoid "$Fullname" $Depth ($CurrentDepth + 1)
 			}
 			# call the routine recursively 
 			else { write-warning "No idea what to do with  object of named '$($Name)', basetype '$($RefBaseType)''$($DiffBaseType)' with match of '$TheMatch'" }
