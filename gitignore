@@ -1,0 +1,11 @@
+# Debug and Release Folders
+debug/
+release/
+
+
+# Other files and folders
+.settings/
+
+# Stuff
+*.TempPoint.ps1
+*.Debugging.psi
