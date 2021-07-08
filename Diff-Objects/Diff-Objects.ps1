@@ -1,41 +1,46 @@
 ﻿<#
 	.SYNOPSIS
-		Used to Compare two SQL Prompt Code analysis settings files or 
-        style Format files
+		Used to Compare two SQL Prompt Code analysis settings files or
+		style Format files
 	
 	.DESCRIPTION
 		This compares two objects that are either XML objects or are derived from
-first reading in JSON Files and converting them, using Convertfrom-JSON. 
-This compares two powershell objects but because the styles or CA Settingsd do not 
-have any value arrays, it doesn't bother to deal with that.
+		first reading in JSON Files and converting them, using Convertfrom-JSON.
+		This compares two powershell objects but because the styles or CA Settingsd do not
+		have any value arrays, it doesn't bother to deal with that.
 	
 	.PARAMETER Ref
-		The source object derived from ConvertFrom-JSON or the XML object 
+		The source object derived from ConvertFrom-JSON or the XML object
 	
 	.PARAMETER diff
-		The target object derived from ConvertFrom-JSON or the XML object 
+		The target object derived from ConvertFrom-JSON or the XML object
 	
 	.PARAMETER Avoid
 		a list of any object you wish to avoid comparing
-
-	.PARAMETER Depth
-		The depth to which you wish to recurse
-
+	
 	.PARAMETER Parent
 		Only used for recursion
-
-    .PARAMETER CurrentDepth
+	
+	.PARAMETER Depth
+		The depth to which you wish to recurse
+	
+	.PARAMETER CurrentDepth
 		Only used for recursion
 	
+	.PARAMETER NullAndBlankSame
+		A description of the NullAndBlankSame parameter.
+	
+	.NOTES
+		Additional information about the function.
 #>
 function Diff-Objects
 {
 	param
 	(
-		[Parameter(Mandatory = $true, #The source object derived from ConvertFrom-JSON
+		[Parameter(Mandatory = $true,
 				   Position = 1)]
 		[object]$Ref,
-		[Parameter(Mandatory = $true, #The target object derived from ConvertFrom-JSON
+		[Parameter(Mandatory = $true,
 				   Position = 2)]
 		[object]$Diff,
 		[Parameter(Mandatory = $false,
@@ -49,8 +54,11 @@ function Diff-Objects
 		[int]$Depth = 4,
 		[Parameter(Mandatory = $false,
 				   Position = 6)]
-		[int]$CurrentDepth = 0
+		[int]$CurrentDepth = 0,
+		[Parameter(Position = 7)]
+		[boolean]$NullAndBlankSame = $False
 	)
+	
 	if ($CurrentDepth -eq $Depth) { Return };
 	# first create a  unique (unduplicated) list of all the key names obtained from 
 	# either the source or target object
@@ -117,7 +125,8 @@ function Diff-Objects
 			$Type = $Null; #because we don't know it and it may not exist
 			$SourceValue = $null; #we fill this where possible
 			$TargetValue = $null; #we fill this where possible
-			if ($Name -notin $Avoid) #if the user han't asked for it to be avoided
+			if (($Name -notin $Avoid) -and ($Parent -notin $Avoid))
+			#if the user han't asked for it to be avoided
 			{
 				try
 				{
@@ -140,9 +149,17 @@ function Diff-Objects
 						$SourceValue = $Ref.($Name)
 						if ($Null -eq $TargetValue -or $Null -eq $SourceValue)
 						{
-							$TheMatch = "$(if ($Null -eq $Ref) { '-' }
-								else { '<' })$(if ($Null -eq $Diff) { '-' }
-								else { '>' })"
+							write-Verbose '...one is a null'
+							if ($NullAndBlankSame -and
+								[string]::IsNullOrEmpty($TargetValue) -and
+								[string]::IsNullOrEmpty($SourceValue))
+							{ $TheMatch = '==' }
+							else
+							{
+								$TheMatch = "$(if ($Null -eq $Ref) { '-' }
+									else { '<' })$(if ($Null -eq $Diff) { '-' }
+									else { '>' })"
+							}
 						}
 					}
 				}
@@ -235,7 +252,7 @@ function Diff-Objects
 			if (($ItsAnObject) -or ($ItsAnArray))
 			{
 				#if it is an object or array on both sides
-				Diff-Objects $SourceValue $targetValue $Avoid "$Fullname" $Depth ($CurrentDepth + 1)
+				Diff-Objects $SourceValue $targetValue $Avoid "$Fullname" $Depth ($CurrentDepth + 1) $NullAndBlankSame
 			}
 			# call the routine recursively 
 			else { write-warning "No idea what to do with  object of named '$($Name)', basetype '$($RefBaseType)''$($DiffBaseType)' with match of '$TheMatch'" }
