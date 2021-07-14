@@ -45,8 +45,8 @@ function Display-Object
 		#If you can, force it to be a PSCustomObject
 		$TheObject = [pscustomObject]$TheObject;
 		$ObjectTypeName = 'PSCustomObject'
-	}
-	if (!($TheObject.Count -gt 1)) #not something that behaves like an array
+	} #first do objects that cannot be treated as an array.
+	if ($TheObject.Count -le 1 -and $ObjectTypeName -ne 'object[]') #not something that behaves like an array
 	{
 		# figure out where you get the names from
 		if ($ObjectTypeName -in @('PSCustomObject'))
@@ -54,7 +54,8 @@ function Display-Object
 		{ $MemberType = 'NoteProperty' }
 		else
 		{ $MemberType = 'Property' }
-		#now go through the names 		
+		#now go through the names 
+		Write-Warning "$MemberType $ObjectTypeName $TheObject"
 		$TheObject |
 		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
 		Foreach{
@@ -78,22 +79,26 @@ function Display-Object
 	}
 	else #it is an array
 	{
-		0..($TheObject.Count - 1) | Foreach{
-			$child = $TheObject[$_];
-			if (($child -eq $null) -or #is the current child a value or a null?
-				($child.GetType().BaseType.Name -eq 'ValueType') -or
-				($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
-			{ [pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; } }
-			elseif (($CurrentDepth + 1) -eq $Depth)
-			{
-				[pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; }
+		if ($TheObject.Count -gt 0)
+		{
+			0..($TheObject.Count - 1) | Foreach{
+				$child = $TheObject[$_];
+				if (($child -eq $null) -or #is the current child a value or a null?
+					($child.GetType().BaseType.Name -eq 'ValueType') -or
+					($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
+				{ [pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; } }
+				elseif (($CurrentDepth + 1) -eq $Depth)
+				{
+					[pscustomobject]@{ 'Path' = "$Parent[$_]"; 'Value' = "$($child)"; }
+				}
+				else #not a value but an object of some sort so do a recursive call
+				{
+					Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `
+								   -CurrentDepth ($currentDepth + 1)
+				}
+				
 			}
-			else #not a value but an object of some sort so do a recursive call
-			{
-				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `
-							   -CurrentDepth ($currentDepth + 1)
-			}
-			
 		}
+		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
 	}
 }
