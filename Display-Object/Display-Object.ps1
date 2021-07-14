@@ -55,23 +55,24 @@ function Display-Object
 		else
 		{ $MemberType = 'Property' }
 		#now go through the names 
-		Write-Warning "$MemberType $ObjectTypeName $TheObject"
 		$TheObject |
 		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
 		Foreach{
 			Try { $child = $TheObject.($_.Name); }
 			Catch { $Child = $null } # avoid crashing on write-only objects
+			$brackets = ''; if ($_.Name -like '*.*') { $brackets = "'" }
 			if ($child -eq $null -or #is the current child a value or a null?
 				$child.GetType().BaseType.Name -eq 'ValueType' -or
 				$child.GetType().Name -in @('String', 'String[]'))
-			{ [pscustomobject]@{ 'Path' = "$Parent.$($_.Name)"; 'Value' = $Child; } }
+			{ [pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = $Child; } }
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
-				[pscustomobject]@{ 'Path' = "$Parent.$($_.Name)"; 'Value' = $Child; }
+				[pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = $Child; }
 			}
 			else #not a value but an object of some sort
 			{
-				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -Parent "$Parent.$($_.Name)" `
+				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid `
+							   -Parent "$Parent.$brackets$($_.Name)$brackets" `
 							   -CurrentDepth ($currentDepth + 1)
 			}
 			
@@ -98,7 +99,8 @@ function Display-Object
 				}
 				
 			}
-		}#addition to deal with empty arrays
+		}
 		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
 	}
 }
+
