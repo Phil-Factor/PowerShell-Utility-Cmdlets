@@ -98,7 +98,7 @@ function Display-Object
 				}
 				
 			}
-		}
+		}#addition to deal with empty arrays
 		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
 	}
 }
