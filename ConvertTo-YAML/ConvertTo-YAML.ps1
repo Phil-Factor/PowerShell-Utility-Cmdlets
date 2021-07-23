@@ -35,16 +35,22 @@ function ConvertTo-YAML
 		[Object[]]$Avoid = @('#comment'),
 		[string]$Parent = '',
 		[int]$CurrentDepth = 0,
-		[boolean]$starting = $True
+		[boolean]$starting = $True,
+		[string]$objectPrefix = '  '
 	)
 	$Formatting = {
+		# effectively a local function
 		Param ($TheParent,
-			$TheChild)
-		"$Parent- $(
-			if ($child -eq $null) { 'null' }
-			elseif ($child -imatch '[\t \r\n\b\f\v\''\"\\]') { ($Child | ConvertTo-json) }
+			$TheKey,
+			$TheChild,
+			$ThePrefix = ' ')
+		if ($TheKey -imatch '[\t \r\n\b\f\v\''\"\\]')
+		{ $TheKey = ($TheKey | ConvertTo-json) }
+		"$($TheParent)$($objectPrefix)$($TheKey)$($Theprefix) $(
+			if ($Thechild -eq $null) { 'null' }
+			elseif ($Thechild -imatch '[\t \r\n\b\f\v\''\"\\]') { ($Thechild | ConvertTo-json) }
 			#elseif  ($child -like '* *')  {a$child`"} 
-			else { "$child" }
+			else { "$Thechild" }
 		)"
 	}
 	
@@ -75,19 +81,20 @@ function ConvertTo-YAML
 			if ($child -eq $null -or #is the current child a value or a null?
 				$child.GetType().BaseType.Name -eq 'ValueType' -or
 				$child.GetType().Name -in @('String', 'String[]'))
-			{ "$Parent$($_.Name): $(if ($child -eq $null) { 'null' }
-					else { $Child | ConvertTo-json })"; }
+			{
+				& $Formatting $Parent "$($_.Name)" $child ':'
+			}
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
-				& $Formatting -ArgumentList $parent $child
+				& $Formatting  $parent "$($_.Name)" $child '-'
 			}
 			else #not a value but an object of some sort
 			{
 				"$parent$($_.Name):"
 				ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid -Parent "  $parent" `
-							   -CurrentDepth ($currentDepth + 1) -starting $False
+							   -CurrentDepth ($currentDepth + 1) -starting $False -objectPrefix $objectPrefix
 			}
-			
+			$objectPrefix = '  '
 		}
 	}
 	else #it is an array
@@ -99,19 +106,19 @@ function ConvertTo-YAML
 				if (($child -eq $null) -or #is the current child a value or a null?
 					($child.GetType().BaseType.Name -eq 'ValueType') -or
 					($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
-				{ & $Formatting -ArgumentList $parent $child }
+				{ & $Formatting $parent '' $child '-' }
 				elseif (($CurrentDepth + 1) -eq $Depth)
 				{
-					& $Formatting -ArgumentList $parent $child
+					& $Formatting $parent '' $child '-'
 				}
 				else #not a value but an object of some sort so do a recursive call
 				{
-					ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `
-								   -CurrentDepth ($currentDepth + 1)
+					ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent  " -objectPrefix '- '`
+								   -CurrentDepth ($currentDepth + 1) -starting $False
 				}
-				
+				$objectPrefix = '  '
 			}
 		}
-		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
+		else { & $Formatting $parent '' $null '-' }
 	}
 }
