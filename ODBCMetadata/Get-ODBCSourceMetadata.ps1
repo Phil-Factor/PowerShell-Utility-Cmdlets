@@ -1,4 +1,4 @@
-﻿﻿<#
+﻿<#
 	.SYNOPSIS
 		Gets the metadata of any ODBC connection (any database with a good driver
 		So far, only tested with SQL Server, Postgres and MariaDB. All were very
@@ -26,6 +26,8 @@
 	.NOTES
 		
 #>
+
+
 function Get-ODBCSourceMetadata
 {
 	[CmdletBinding()]
@@ -65,9 +67,7 @@ FROM information_schema.TABLES
 		$query = @'
 SELECT 
   CONCAT( table_schema, '.',TABLE_NAME) AS The_NAME, 
-  concat(COLUMN_NAME,' ',column_Type,
-     case when IS_NULLABLE='NO' then ' NOT NULL ' ELSE '' end,
-     case when Column_Default IS NOT NULL then CONCAT(' DEFAULT(',Column_Default,')') ELSE '' end ) AS The_COLUMN 
+  concat(COLUMN_NAME,' ',column_Type,case when IS_NULLABLE='NO' then ' NOT NULL ' ELSE '' end,case when Column_Default IS NOT NULL then CONCAT(' DEFAULT(',Column_Default,')') ELSE '' end ) AS The_COLUMN 
 FROM information_schema.columns 
 WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys')
 ORDER BY table_schema, TABLE_NAME, ordinal_Position
@@ -140,8 +140,19 @@ GROUP BY table_schema,  TABLE_NAME, index_Name
 		}
 		if ($WeHaveProceduresOrFunctions)
 		{
-			$ListOfObjects += $ODBCConnection.GetSchema('Procedures') | select -first 5
-			where { $_.PROCEDURE_SCHEM -notin @('sys', 'pg_catalog', 'INFORMATION_SCHEMA') }
+			$ListOfObjects += $ODBCConnection.GetSchema('Procedures') |
+			where { $_.PROCEDURE_SCHEM -notin @('sys', 'pg_catalog', 'INFORMATION_SCHEMA') } |
+			foreach{
+				$Name = ($_.PROCEDURE_NAME -split ';')[0]
+				$Typecode = ($_.PROCEDURE_NAME -split ';')[1]
+				$Type = 'Routine'
+				if ($Typecode -eq 1) { $Type = 'Procedure' }
+				if ($Typecode -eq 0) { $Type = 'Function' }
+				if ($Typecode -eq 2) { $Type = 'TVF' }
+				[pscustomobject]@{
+					'Name' = "$($_.PROCEDURE_SCHEM).$($Name)"; 'Type' = "$Type";
+				}
+			}
 		}
 		$MetadataObject = $ListOfObjects | ForEach-Object {
 			$SplitDataObjectName = $_.NAME -split '\.' #split the object name to allow metadata calls
