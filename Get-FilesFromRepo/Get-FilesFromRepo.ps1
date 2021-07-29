@@ -23,7 +23,7 @@
 			'Owner' = 'Phil-Factor';
 			'Repository' = 'PubsAndFlyway';
 			'RepoPath' = 'PubsPostgreSQL';
-			'DestinationPath' = "$env:Temp\$repository";
+			'DestinationPath' = "$env:Temp\PubsPostgreSQL";
 		}
 		Get-FilesFromRepo @Params
 
@@ -81,7 +81,7 @@ function Get-FilesFromRepo
 		# create the destination path if it doesn't exist
 		try
 		{
-			New-Item -Path $DestinationPath -ItemType Directory
+			$null = New-Item -Path $DestinationPath -ItemType Directory
 		}
 		catch
 		{
