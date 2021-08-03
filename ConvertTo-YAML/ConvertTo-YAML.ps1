@@ -49,7 +49,6 @@ function ConvertTo-YAML
 		"$($TheParent)$($objectPrefix)$($TheKey)$($Theprefix) $(
 			if ($Thechild -eq $null) { 'null' }
 			elseif ($Thechild -imatch '[\t \r\n\b\f\v\''\"\\]') { ($Thechild | ConvertTo-json) }
-			#elseif  ($child -like '* *')  {a$child`"} 
 			else { "$Thechild" }
 		)"
 	}
