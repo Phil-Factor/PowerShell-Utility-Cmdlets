@@ -36,6 +36,7 @@ function ConvertTo-YAML
 		[string]$Parent = '',
 		[int]$CurrentDepth = 0,
 		[boolean]$starting = $True,
+		[string]$comment = '',
 		[string]$objectPrefix = '  '
 	)
 	$Formatting = {
@@ -45,15 +46,63 @@ function ConvertTo-YAML
 			$TheChild,
 			$ThePrefix = ' ')
 		if ($TheKey -imatch '[\t \r\n\b\f\v\''\"\\]')
-		{ $TheKey = ($TheKey | ConvertTo-json) }
-		"$($TheParent)$($objectPrefix)$($TheKey)$($Theprefix) $(
-			if ($Thechild -eq $null) { 'null' }
-			elseif ($Thechild -imatch '[\t \r\n\b\f\v\''\"\\]') { ($Thechild | ConvertTo-json) }
-			else { "$Thechild" }
-		)"
+		{ $TheKey = ($TheKey | ConvertTo-json) };
+		$KeyDeclaration = "$($TheParent)$($objectPrefix)$($TheKey)$($Theprefix) ";
+		if ($Thechild -eq $null) { $TheValue = 'null' }
+		elseif ($Thechild -match '[\r\n]' -or $TheChild.Length -gt 80)
+		{
+			# right, we have to format it to YAML spec.
+			$Indent = 0
+			if ($TheParent -imatch '(?<LeadingSpaces>\A *)') { $indent = $matches['LeadingSpaces'].length }
+			
+			$padding = $TheParent.Substring(0, $Indent) + '  '
+			$ItHasLongLines = $False;
+			$TheValue = ''
+			$TheChild -split '[\n|\r]{1,2}' | ForEach-Object {
+				$length = $_.Length;
+				$IndexIntoString = 0;
+				$wrap = 80;
+				while ($length -gt $IndexIntoString + $Wrap)
+				{
+					$BreakPoint = $wrap
+					$ItHasLongLines = $true;
+					$earliest = $_.Substring($IndexIntoString, $wrap).LastIndexOf(' ')
+					$latest = $_.Substring($IndexIntoString + $wrap).IndexOf(' ')
+					if ($earliest -eq -1) #no line breaks so nothing to do
+					{ $BreakPoint = $wrap }
+					elseif ($latest -eq -1)
+					{ $Breakpoint = $earliest }
+					elseif ($wrap - $earliest -lt ($latest))
+					{ $BreakPoint = $wrap }
+					else
+					{ $BreakPoint = $wrap + $latest }
+					#now we 
+					$TheValue += $padding + $_.Substring($IndexIntoString, $BreakPoint).Trim() + "`r`n";
+					$IndexIntoString += $BreakPoint
+				}
+				
+				if ($IndexIntoString -lt $length)
+				{
+					$TheValue += $padding + $_.Substring($IndexIntoString).Trim() + "`r`n`r`n"
+				}
+				else
+				{
+					$TheValue += "`r`n`r`n"
+				}
+			}
+			if ($ItHasLongLines) { $TheValue = "> `r`n" + $TheValue }
+			else { $TheValue = "| `r`n" + $TheValue -replace '\r\n\r\n', "`r`n" }
+		}
+		elseif ($Thechild -imatch '[\t\r\n\b\f\v\''\"\\]') { $TheValue = $Thechild | ConvertTo-json }
+		else { $TheValue = "$Thechild" }
+		"$KeyDeclaration$TheValue"
 	}
 	
-	if ($starting) { '---'; $starting = $false }
+	if ($starting)
+	{
+		"---$(if ($comment.Length -eq 0) { '' }
+			else { " # $comment" })"; $starting = $false
+	}
 	if (($CurrentDepth -ge $Depth) -or
 		($TheObject -eq $Null)) { return; } #prevent runaway recursion
 	$ObjectTypeName = $TheObject.GetType().Name #find out what type it is
