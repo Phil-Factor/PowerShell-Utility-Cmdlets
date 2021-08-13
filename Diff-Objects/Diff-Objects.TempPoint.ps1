@@ -1,17 +1,19 @@
 ﻿<#
 	.SYNOPSIS
-		Used to Compare two powershell objects
+		Used to Compare two SQL Prompt Code analysis settings files or
+		style Format files
 	
 	.DESCRIPTION
-		This compares two powershell objects by determining their shared 
-     keys or array sizes and comparing the values of each. It uses the 
-	
+		This compares two objects that are either XML objects or are derived from
+		first reading in JSON Files and converting them, using Convertfrom-JSON.
+		This compares two powershell objects but because the styles or CA Settingsd do not
+		have any value arrays, it doesn't bother to deal with that.
 	
 	.PARAMETER Ref
-		The source object 
+		The source object derived from ConvertFrom-JSON or the XML object
 	
 	.PARAMETER diff
-		The target object 
+		The target object derived from ConvertFrom-JSON or the XML object
 	
 	.PARAMETER Avoid
 		a list of any object you wish to avoid comparing
@@ -26,7 +28,7 @@
 		Only used for recursion
 	
 	.PARAMETER NullAndBlankSame
-		Do we regard null and Blank the same for the purpose of comparisons.
+		A description of the NullAndBlankSame parameter.
 	
 	.NOTES
 		Additional information about the function.
