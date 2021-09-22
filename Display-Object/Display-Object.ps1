@@ -103,4 +103,3 @@ function Display-Object
 		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
 	}
 }
-

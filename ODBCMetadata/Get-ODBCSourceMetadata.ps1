@@ -1,7 +1,7 @@
 ﻿<#
 	.SYNOPSIS
 		Gets the metadata of any ODBC connection (any database with a good driver
-		So far, only tested with SQL Server, Postgres and MariaDB. All were very
+		So far, only tested with SQL Server, Postgres, sqlite  and MariaDB. All were very
 		different
 	
 	.DESCRIPTION
