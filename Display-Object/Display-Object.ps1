@@ -19,7 +19,9 @@
 	
 	.PARAMETER CurrentDepth
 		For internal use
-	
+
+	.PARAMETER RerportNodes
+		Do you wish to report on nodes containing objects as well as values?	
 	.NOTES
 		Additional information about the function.
 #>
@@ -34,7 +36,8 @@ function Display-Object
 		[int]$depth = 5,
 		[Object[]]$Avoid = @('#comment'),
 		[string]$Parent = '$',
-		[int]$CurrentDepth = 0
+		[int]$CurrentDepth = 0,
+        [int]$reportNodes =0
 	)
 	
 	if (($CurrentDepth -ge $Depth) -or
@@ -54,16 +57,17 @@ function Display-Object
 		{ $MemberType = 'NoteProperty' }
 		else
 		{ $MemberType = 'Property' }
-		#now go through the names 
+		#now go through the property names, fetching them via GM
 		$TheObject |
 		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
 		Foreach{
 			Try { $child = $TheObject.($_.Name); }
 			Catch { $Child = $null } # avoid crashing on write-only objects
 			$brackets = ''; if ($_.Name -like '*.*') { $brackets = "'" }
+            $ChildType=$child.GetType().Name;#what is this value
 			if ($child -eq $null -or #is the current child a value or a null?
 				$child.GetType().BaseType.Name -eq 'ValueType' -or
-				$child.GetType().Name -in @('String', 'String[]'))
+				$ChildType -in @('String', 'String[]'))
 			{ [pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = $Child; } }
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
@@ -71,9 +75,13 @@ function Display-Object
 			}
 			else #not a value but an object of some sort
 			{
+				if ($ReportNodes -and $childType -ne 'Object[]')
+                {[pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = "($ChildType)" }}
+
 				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid `
 							   -Parent "$Parent.$brackets$($_.Name)$brackets" `
-							   -CurrentDepth ($currentDepth + 1)
+							   -CurrentDepth ($currentDepth + 1) `
+                                -ReportNodes $reportNodes
 			}
 			
 		}
@@ -95,7 +103,8 @@ function Display-Object
 				else #not a value but an object of some sort so do a recursive call
 				{
 					Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `
-								   -CurrentDepth ($currentDepth + 1)
+								   -CurrentDepth ($currentDepth + 1) `
+                                    -ReportNodes $reportNodes
 				}
 				
 			}
@@ -103,3 +112,4 @@ function Display-Object
 		else { [pscustomobject]@{ 'Path' = "$Parent"; 'Value' = $Null } }
 	}
 }
+
