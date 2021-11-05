@@ -55,11 +55,14 @@ function Diff-Objects
         [string]$NullAndBlankSame = $true,
 		[Parameter(Mandatory = $false,
 				   Position = 6)]
-		[int]$ReportNodes = $true
+		[int]$ReportNodes = $true,
+		[Parameter(Mandatory = $false,
+				   Position = 7)]
+		[int]$Depth =10
 	)
 	
-	$Left = display-object $Ref -Avoid $Avoid -Parent $Parent -Depth 10 -reportNodes $ReportNodes
-	$right = display-object $Diff -depth 10 -reportNodes $ReportNodes
+	$Left = display-object $Ref -Avoid $Avoid -Parent $Parent -Depth $Depth -reportNodes $ReportNodes
+	$right = display-object $Diff -Avoid $Avoid -Parent $Parent -depth $Depth -reportNodes $ReportNodes
 	$Paths = $Left + $Right | Select path -Unique
 	$Paths | foreach{
 		$ThePath = $_.Path;
@@ -82,58 +85,4 @@ function Diff-Objects
 		
 	}
 }
-
-#A Test for a Display-Object Cmdlet that we are developing.
-#We have the reference version of what the data should be in #ref
-$Ref=@'
-#TYPE System.Management.Automation.PSCustomObject
-"Path","Value"
-"$.Ham.Downtime",
-"$.Ham.Location","Floor two rack"
-"$.Ham.Users[0]","Fred"
-"$.Ham.Users[1]","Jane"
-"$.Ham.Users[2]","Mo"
-"$.Ham.Users[3]","Phil"
-"$.Ham.Users[4]","Tony"
-"$.Ham.version","2019"
-"$.Japeth.Location","basement rack"
-"$.Japeth.Users[0]","Karen"
-"$.Japeth.Users[1]","Wyonna"
-"$.Japeth.Users[2]","Henry"
-"$.Japeth.version","2008"
-"$.Shem.Location","Server room"
-"$.Shem.Users[0]","Fred"
-"$.Shem.Users[1]","Jane"
-"$.Shem.Users[2]","Mo"
-"$.Shem.version","2017"
-'@ |ConvertFrom-Csv
-# We now have the reference result. we now create the test input 
-$ServersAndUsers =
-@{'Shem' =
-  @{
-    'version' = '2017'; 'Location' = 'Server room';
-        'Users'=@('Fred','Jane','Mo')
-     }; 
-  'Ham' =
-  @{
-    'version' = '2019'; 'Location' = 'Floor two rack';
-        'Downtime'=$null
-        'Users'=@('Fred','Jane','Mo','Phil','Tony')
-  }; 
-  'Japeth' =
-  @{
-    'version' = '2008'; 'Location' = 'basement rack';
-        'Users'=@('Karen','Wyonna','Henry')
-  }
-}
-#we run the 'Display-Object' that we are developing.
-$Diff= Display-Object $ServersAndUsers
-# we now have a #Ref object with what the output should be, and we have the $diff object
-# of what is produced by the current version 
-# We test to see if the $Ref and $Diff match.
-$TestResult=Diff-Objects - -Ref $ref -Diff $diff -NullAndBlankSame $True |
-    where {$_.Match -ne '=='}
-if ($TestResult) #if any differences were reported.
-    {Write-warning 'Test for Display-Object with  ServersAndUsers failed'
-    $TestResult|format-table}
 
