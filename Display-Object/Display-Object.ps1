@@ -61,10 +61,11 @@ function Display-Object
 		$TheObject |
 		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
 		Foreach{
-			Try { $child = $TheObject.($_.Name); }
-			Catch { $Child = $null } # avoid crashing on write-only objects
+			Try { $child = $TheObject.($_.Name); 
+                  $ChildType=$child.GetType().Name;#what is this value
+                }
+			Catch { $Child = $null; } # avoid crashing on write-only objects
 			$brackets = ''; if ($_.Name -like '*.*') { $brackets = "'" }
-            $ChildType=$child.GetType().Name;#what is this value
 			if ($child -eq $null -or #is the current child a value or a null?
 				$child.GetType().BaseType.Name -eq 'ValueType' -or
 				$ChildType -in @('String', 'String[]'))
