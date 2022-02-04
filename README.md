@@ -53,3 +53,9 @@ e.g.
 		Get-FilesFromRepo @Params
 ```
 
+
+
+## Distribute-LatestVersionOfFile
+
+Finds the latest version of a file and copies  it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updated everywhere within the directory structure 
+For the BaseDirectory parameter, you should provide the base directory of the location where the alterations can take place. For the  Filename parameter, you need to provide  the name of the file that you want synchronized across the location
