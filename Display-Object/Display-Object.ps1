@@ -37,7 +37,8 @@ function Display-Object
 		[Object[]]$Avoid = @('#comment'),
 		[string]$Parent = '$',
 		[int]$CurrentDepth = 0,
-        [int]$reportNodes =0
+        [int]$reportNodes =0,
+        [int]$ordered =$True
 	)
 	
 	if (($CurrentDepth -ge $Depth) -or
@@ -58,9 +59,11 @@ function Display-Object
 		else
 		{ $MemberType = 'Property' }
 		#now go through the property names, fetching them via GM
-		$TheObject |
-		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
-		Foreach{
+        if ($ordered)
+		 {$TheMembers=$TheObject | gm -MemberType $MemberType | where { $_.Name -notin $Avoid } }
+        else
+         {$TheMembers=$TheObject.PSObject.Properties | Select-Object Name| where { $_.Name -notin $Avoid } }
+        $TheMembers|Foreach{
 			Try { $child = $TheObject.($_.Name); 
                   $ChildType=$child.GetType().Name;#what is this value
                 }

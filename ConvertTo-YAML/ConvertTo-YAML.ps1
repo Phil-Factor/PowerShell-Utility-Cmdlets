@@ -12,10 +12,7 @@
 		the depth of recursion (keep it low!)
 	
 	.PARAMETER Avoid
-		an array of names of pbjects or arrays you wish to avoid.
-	
-	.PARAMETER Parent
-		For internal use, but you can specify the name of the variable
+		an array of names of objects or arrays you wish to avoid.
 	
 	.PARAMETER CurrentDepth
 		For internal use
@@ -33,31 +30,34 @@ function ConvertTo-YAML
 		$TheObject,
 		[int]$depth = 5,
 		[Object[]]$Avoid = @('#comment'),
-		[string]$Parent = '',
 		[int]$CurrentDepth = 0,
 		[boolean]$starting = $True,
 		[string]$comment = '',
-		[string]$objectPrefix = '  '
+		[int]$ParentIsArray= $false #is this being called from an array?
 	)
 	$Formatting = {
 		# effectively a local function
-		Param ($TheParent,
+		Param (
 			$TheKey,
+			# the key of the key/value pair
 			$TheChild,
-			$ThePrefix = ' ')
-		if ($TheKey -imatch '[\t \r\n\b\f\v\''\"\\]')
-		{ $TheKey = ($TheKey | ConvertTo-json) };
-		$KeyDeclaration = "$($TheParent)$($objectPrefix)$($TheKey)$($Theprefix) ";
+			# the key of the key/value pair
+			$ThePrefix = ' '
+             # the prefix for the value : or -
+    
+		)
+		Write-verbose "depth='$currentdepth', TheKey='$TheKey', TheChild='$TheChild', ThePrefix='$ThePrefix' "
+		if ($TheKey -imatch '[\t \r\n\b\f\v\''\"\\]') #If the key contains json escapes...
+		{ $TheKey = ($TheKey | ConvertTo-json) }; #just so escape it
+		$KeyDeclaration = "$PaddingMaybeIndicator$($TheKey)$($Theprefix) ";
 		if ($Thechild -eq $null) { $TheValue = 'null' }
 		elseif ($Thechild -match '[\r\n]' -or $TheChild.Length -gt 80)
 		{
 			# right, we have to format it to YAML spec.
 			$Indent = 0
-			if ($TheParent -imatch '(?<LeadingSpaces>\A *)') { $indent = $matches['LeadingSpaces'].length }
-			
-			$padding = $TheParent.Substring(0, $Indent) + '  '
-			$ItHasLongLines = $False;
+			$ItHasLongLines = $False; #until proved otherwise
 			$TheValue = ''
+			#split the text up
 			$TheChild -split '[\n|\r]{1,2}' | ForEach-Object {
 				$length = $_.Length;
 				$IndexIntoString = 0;
@@ -77,27 +77,30 @@ function ConvertTo-YAML
 					else
 					{ $BreakPoint = $wrap + $latest }
 					#now we 
-					$TheValue += $padding + $_.Substring($IndexIntoString, $BreakPoint).Trim() + "`r`n";
+					$TheValue += $padding+'  '+$_.Substring($IndexIntoString, $BreakPoint).Trim() + "`r`n";
 					$IndexIntoString += $BreakPoint
 				}
 				
 				if ($IndexIntoString -lt $length)
 				{
-					$TheValue += $padding + $_.Substring($IndexIntoString).Trim() + "`r`n`r`n"
+					$TheValue += $padding+'  '+$_.Substring($IndexIntoString).Trim() + "`r`n"
 				}
 				else
 				{
-					$TheValue += "`r`n`r`n"
+					$TheValue += "`r`n"
 				}
 			}
-			if ($ItHasLongLines) { $TheValue = "> `r`n" + $TheValue }
+			if ($ItHasLongLines)
+			{ $TheValue = "> `r`n" + $TheValue }
 			else { $TheValue = "| `r`n" + $TheValue -replace '\r\n\r\n', "`r`n" }
 		}
 		elseif ($Thechild -imatch '[\t\r\n\b\f\v\''\"\\]') { $TheValue = $Thechild | ConvertTo-json }
-		else { $TheValue = "$Thechild" }
+		else { $TheValue = "$Thechild" } # just let powershell format it
 		"$KeyDeclaration$TheValue"
 	}
-	
+
+    $Padding='                      '.Substring(1,($currentdepth*2))
+    $PaddingMaybeIndicator=if ($ParentIsArray){$Padding.Substring(0,$Padding.Length-2)+'- '} else {$Padding};	
 	if ($starting)
 	{
 		"---$(if ($comment.Length -eq 0) { '' }
@@ -114,59 +117,55 @@ function ConvertTo-YAML
 	}
 	if (!($TheObject.Count -gt 1)) #not something that behaves like an array
 	{
-		# figure out where you get the names from
-		if ($ObjectTypeName -in @('PSCustomObject'))
-		# Name-Value pair properties created by Powershell 
-		{ $MemberType = 'NoteProperty' }
-		else
-		{ $MemberType = 'Property' }
-		#now go through the names 		
-		$TheObject |
-		gm -MemberType $MemberType | where { $_.Name -notin $Avoid } |
-		Foreach{
-			Try { $child = $TheObject.($_.Name); }
-			Catch { $Child = $null } # avoid crashing on write-only objects
-			if ($child -eq $null -or #is the current child a value or a null?
-				$child.GetType().BaseType.Name -eq 'ValueType' -or
-				$child.GetType().Name -in @('String', 'String[]'))
+		#now go through the names 
+        
+		$TheObject.PSObject.Properties | where { $_.Name -notin $Avoid } | Foreach{
+            Write-verbose "type='$($_.TypeNameOfValue)'"
+			$child = $_.value;
+			if ($_.TypeNameOfValue -like '*String*' -or
+                $_.TypeNameOfValue -in @('System.Object','System.boolean','System.int32','System.Decimal'))
 			{
-				& $Formatting $Parent "$($_.Name)" $child ':'
+                & $Formatting  "$($_.Name)" "$child"  ':'
 			}
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
-				& $Formatting  $parent "$($_.Name)" $child '-'
+				& $Formatting   "$($_.Name)" "$child" ':'
 			}
 			else #not a value but an object of some sort
 			{
-				"$parent$($_.Name):"
-				ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid -Parent "  $parent" `
-							   -CurrentDepth ($currentDepth + 1) -starting $False -objectPrefix $objectPrefix
+                Write-Verbose "recursion with object  $($_.Name)"
+				$padding+"$($_.Name):"#
+				ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid `
+							   -CurrentDepth ($currentDepth + 1) -starting $False 
 			}
 			$objectPrefix = '  '
+			
 		}
 	}
-	else #it is an array
-	{
-		if ($TheObject.Count -gt 0)
+	else # it is an array
 		{
-			0..($TheObject.Count - 1) | Foreach{
-				$child = $TheObject[$_];
-				if (($child -eq $null) -or #is the current child a value or a null?
-					($child.GetType().BaseType.Name -eq 'ValueType') -or
-					($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
-				{ & $Formatting $parent '' $child '-' }
-				elseif (($CurrentDepth + 1) -eq $Depth)
-				{
-					& $Formatting $parent '' $child '-'
-				}
-				else #not a value but an object of some sort so do a recursive call
-				{
-					ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent  " -objectPrefix '- '`
-								   -CurrentDepth ($currentDepth + 1) -starting $False
-				}
-				$objectPrefix = '  '
+			if ($TheObject.Count -gt 0)
+			{
+				0..($TheObject.Count - 1) | Foreach{
+					$child = $TheObject[$_];
+					if (($child -eq $null) -or #is the current child a value or a null?
+						($child.GetType().BaseType.Name -eq 'ValueType') -or
+						($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
+					{ & $Formatting  '' $child '-' }
+					elseif (($CurrentDepth + 1) -eq $Depth)
+					{
+						& $Formatting  '' $child '-'
+					}
+					else #not a value but an object of some sort so do a recursive call
+					{
+                    Write-Verbose "recursion with array element  $child"
+					ConvertTo-YAML -TheObject $child -depth $Depth -Avoid $Avoid  `
+								 -CurrentDepth ($currentDepth + 1) -starting $False -ParentIsArray $true
+					}
+									}
 			}
+			else { & $Formatting  '' $null '-' }
 		}
-		else { & $Formatting $parent '' $null '-' }
 	}
-}
+	
+	
