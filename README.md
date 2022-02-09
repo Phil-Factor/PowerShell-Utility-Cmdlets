@@ -32,11 +32,9 @@ $connpsql = new-object system.data.odbc.odbcconnection
 		Get-ODBCSourceMetadata -ODBCConnection $connpsql
 ```
 
-
-
 ## ConvertTo-YAML
 
-This is an experiment, using the principles of Display-object, to convert any PowerShell object to a YAML document.
+This is an experiment, using the principles of Display-object, to convert any PowerShell object to a YAML document. I’m still fishing a few bugs out but the current version is usable as long as you don’t do anything outlandish. Oddly, it gets shorter the more I fix problems.
 
 ## Get-FilesFromRepo
 
@@ -57,5 +55,5 @@ e.g.
 
 ## Distribute-LatestVersionOfFile
 
-Finds the latest version of a file and copies  it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updated everywhere within the directory structure 
+Finds the latest version of a file and copies  it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updatd everywhere within the directory structure 
 For the BaseDirectory parameter, you should provide the base directory of the location where the alterations can take place. For the  Filename parameter, you need to provide  the name of the file that you want synchronized across the location
