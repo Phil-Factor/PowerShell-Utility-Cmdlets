@@ -1,6 +1,6 @@
 # PowerShell Utility Cmdlets
 
-This is a repository for a collection of Cmdlets that I wrote only because I needed them and nobody else seemed to have written them. 
+This is a repository for a collection of Cmdlets that I wrote only because I needed them and nobody else seemed to have written them.  I won’t claim that they are perfect but  people seem to appreciate them so I’ve put them public. 
 
 ## ConvertFrom-XML
 
@@ -36,6 +36,10 @@ $connpsql = new-object system.data.odbc.odbcconnection
 
 This is an experiment, using the principles of Display-object, to convert any PowerShell object to a YAML document. I’m still fishing a few bugs out but the current version is usable as long as you don’t do anything outlandish. Oddly, it gets shorter the more I fix problems.
 
+## ConvertTo-PSON
+
+This is a way of converting an object into a PowerShell script. PSON is short for PowerShell Object Notation. You give it an object as input and it returns the script as object notation. This is handy for exploring objects and it is strangely useful in debugging things. It has been curiously hard to write and I keep finding strange objects that it doesn’t do, and then  I have to fix the cmdlet.  It is a surprisingly good way of storing data in a file during dev work since you just execute the file as PowerShell to get the object. Just don’t use it publicly to read in data because it is a terrible security risk. 
+
 ## Get-FilesFromRepo
 
 Get a github repository and download it to a local directory/folder. This is a PowerShell cmdlet that allows you to download a  repository or just a directory from a repository. 
@@ -55,5 +59,5 @@ e.g.
 
 ## Distribute-LatestVersionOfFile
 
-Finds the latest version of a file and copies  it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updatd everywhere within the directory structure 
+Finds the latest version of a file and copies it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updatd everywhere within the directory structure 
 For the BaseDirectory parameter, you should provide the base directory of the location where the alterations can take place. For the  Filename parameter, you need to provide  the name of the file that you want synchronized across the location
