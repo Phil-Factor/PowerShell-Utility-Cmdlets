@@ -14,8 +14,8 @@
 	.PARAMETER Avoid
 		an array of names of objects or arrays you wish to avoid.
 	
-	.PARAMETER CurrentDepth
-		For internal use
+	.PARAMETER Comment
+		comment at the start of the PSON output
 	
 	.NOTES
 		Additional information about the function.
@@ -27,23 +27,23 @@ function ConvertTo-PSON
 	(
 		[Parameter(Mandatory = $true,
 				   ValueFromPipeline = $true)]
-		$TheObject,
-		[int]$depth = 5,
-		[Object[]]$Avoid = @('#comment'),
-		[int]$CurrentDepth = 0,
-		[boolean]$starting = $True,
-		[string]$comment = '',
-		[int]$ParentIsArray = $false #is this being called from an array?
+		$TheObject, # the object you are passing
+		[int]$depth = 5, #your maximum depth. Called 'depth' to be compatible with ConvertTo-json etc
+		[Object[]]$Avoid = @('#comment'), #A list of names. by default avoid XML comment blocks
+		[int]$CurrentDepth = 0, #--internal use only--the recursion level for depth limitation and formatting
+		[boolean]$starting = $True, #--internal use only-- if called recursively, this is set to false
+		[string]$comment = '', # do you want to put a comment at the head? (e.g. if writing to file)
+		[int]$ParentIsArray = $false #--internal use only-- is this being called from an array?
 	)
 	$Formatting = {
-		# effectively a local function
+		<# a scriptblock used as a local function. It is used extensively within the cmdlet. It looks after the
+        formatting #>
+        
 		Param (
 			$TheKey,
 			# the key of the key/value pair null if array
-
 			$TheChild,
 			# the value
-
 			$IsChildaString = $false # is this a string?
 		)
 		$column = 0;
@@ -74,7 +74,7 @@ function ConvertTo-PSON
 		{ "$MaybeAComma$margin'$TheKey' = $bbStart$TheChild$bbEnd" }
 	}
 	$AddBracket = {
-		# effectively a local function
+		# effectively a local function for adding brackets
 		Param (
 			$TheBracket
 			# 
@@ -96,7 +96,9 @@ function ConvertTo-PSON
 		{ "$margin$TheBracket" }
 		
 	}
+    # cmdlet starts here
 	Write-Verbose "2/ called with parameter $($TheObject.GetType().Name) at level $currentDepth"
+    # make sure that the result is nicely formatted
 	$Padding = '                      '.Substring(1, ($currentdepth * 2))
 	$TheOutput = [string]'';
 	if ($starting)
@@ -107,6 +109,9 @@ function ConvertTo-PSON
 	if (($CurrentDepth -ge $Depth) -or
 		($TheObject -eq $Null)) { return; } #prevent runaway recursion
 	$ObjectTypeName = $TheObject.GetType().Name #find out what type it is
+    $ObjectIsString=($TheObject -is [string]);
+    $ObjectIsBoolean=($TheObject -is [boolean]);
+    $ObjectIsStringOrValue=$TheObject.GetType().IsValueType -or $ObjectIsString;
 	if ($ObjectTypeName -in 'HashTable', 'OrderedDictionary')
 	{
 		#If you can, force it to be a PSCustomObject
@@ -127,6 +132,8 @@ function ConvertTo-PSON
 		Write-Verbose "5/ this has no count - $TheObject.Name"
 		$TheOutput += & $Formatting  "$($_.Name)" "@()" $false
 	}
+    elseif ($ObjectIsStringOrValue) 
+        {$TheOutput += & $Formatting  "" "$(if ($objectIsBoolean){'$'})$TheObject" $ObjectIsString}
 	elseif (!($TheObject.Count -gt 1 -or $($TheObject.GetType().Name) -eq 'Object[]' )) #not something that behaves like an array
 	{
 		# 
@@ -147,7 +154,7 @@ function ConvertTo-PSON
 				$TheOutput += & $Formatting  "$($_.Name)" "`$$child" $false
 			}
 			elseif ($ChildisAString -or
-				$_.TypeNameOfValue -in @('System.Object', 'System.int32', 'System.Decimal'))
+				$child.GetType().IsValueType)
 			{
 			    Write-verbose " 6c/ Child Was an easily represented object"
 				$TheOutput += & $Formatting  "$($_.Name)" "$child" $ChildisAString
@@ -265,12 +272,12 @@ $TestData = @(
 		'hashtable' = @('another', @{ 'This' = 'that' }, 4, 65, 789.89, 'yet another');
 		'ExpectedResult' = '["another",{"This":"that"},4,65,789.89,"yet another"]'
 		'TestDesc' = '8/ test are numbers correctly rendered?'
-	}
+	},
 	@{
 		'hashtable' = @($null,$true,$false);
 		'ExpectedResult' = '[null,true,false]'
 		'TestDesc' = '9/ test are null, true and false rendered properly'
-    }
+    },
 	@{
 		'hashtable' = @{'items' = @(@{'First' = 'Shadrak';'second' = @'
 "Something in inverted commas"
@@ -278,14 +285,33 @@ $TestData = @(
     })};
 		'ExpectedResult' = '{"items":[{"second":"\"Something in inverted commas\"","First":"Shadrak","third":{"One":"meshek","two":"Abednego"}}]}'
 		'TestDesc' = '10/ single element array'
+    },
+	@{
+		'hashtable' = 'this is a string';
+		'ExpectedResult' = '"this is a string"'
+		'TestDesc' = '11/ does this handle simple string input like ConvertTo-json?'
+    },
+	@{
+		'hashtable' = $True;
+		'ExpectedResult' = 'true'
+		'TestDesc' = '12/ does this handleboolean input like ConvertTo-json?'
+    },
+	@{
+		'hashtable' = 354.678;
+		'ExpectedResult' = '354.678';
+		'TestDesc' = '13/ does this handle numeric input like ConvertTo-json?'
     }
-)
-
+	@{
+		'hashtable' = @(@{'name' = 'Mark McGwire';'hr' = 65;'avg' = 0.278},@{'name' = 'Sammy Sosa';'hr' = 63;'avg' = 0.288});
+		'ExpectedResult' = '[{"name":"Mark McGwire","hr":65,"avg":0.278},{"name":"Sammy Sosa","hr":63,"avg":0.288}]';
+		'TestDesc' = '14/ simple  table- array of objects'
+    }
+    )
 
 $testData | foreach{
 	$What = $_
 	Try { $JsonString = convertto-json -Compress -depth 8 (Invoke-Expression "$(ConvertTo-PSON $_.hashTable)") }
-	catch { write-warning "$($What.TestDesc)  failed because $($_)" }
+	catch { write-warning "$($What.TestDesc)  failed because $($_) in " }
 	if ($JsonString -ne $_.ExpectedResult)
 	{ write-warning "$($What.TestDesc) produced $JsonString not $($_.ExpectedResult)" }
 }
