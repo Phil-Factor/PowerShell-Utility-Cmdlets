@@ -49,6 +49,9 @@ function Display-Object
 		#If you can, force it to be a PSCustomObject
 		$TheObject = [pscustomObject]$TheObject;
 		$ObjectTypeName = 'PSCustomObject'
+    elseif ($ObjectTypeName -eq 'Collection`1')#and anything else it spits on 
+        {$TheOldObject=$TheObject
+        $TheObject=$TheOldObject|foreach{[pscustomobject]$_}}
 	} #first do objects that cannot be treated as an array.
 	if ($TheObject.Count -le 1 -and $ObjectTypeName -ne 'object[]') #not something that behaves like an array
 	{

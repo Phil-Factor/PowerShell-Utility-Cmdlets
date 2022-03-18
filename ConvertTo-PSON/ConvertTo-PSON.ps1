@@ -118,6 +118,9 @@ function ConvertTo-PSON
 		$TheObject = [pscustomObject]$TheObject;
 		$ObjectTypeName = 'PSCustomObject'
 	}
+    elseif ($ObjectTypeName -eq 'Collection`1')#and anything else it spits on 
+        {$TheOldObject=$TheObject
+        $TheObject=$TheOldObject|foreach{[pscustomobject]$_}}
 	
 	Write-Verbose "3/ the parameter is an $($TheObject.GetType().Name) of count $($TheObject.Count)"
 	
