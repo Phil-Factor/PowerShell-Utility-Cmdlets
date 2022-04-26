@@ -1,6 +1,6 @@
 ﻿<#
 	.SYNOPSIS
-		converts a powershell object into a YAML representation of it 
+		converts a powershell object into a PSON representation of it 
 	
 	.DESCRIPTION
 		
