@@ -191,17 +191,50 @@ function ConvertTo-YAML
 		else { & $Formatting  '' $null '-' }
 	}
 }
+<# Now to do a few obvious unit tests. Surprisingly, I've failed all these in the past #>
 
+@( # first test
+    [pscustomobject]@{'test'= @{ 'First' = @{ }; 'Second' = @() }; 'result'=@'
+---
+Second: null
+First: null
+'@;},# second test
+     [pscustomobject]@{'test'=@(@{ 'This' = 'that' }, @{ 'Error' = 4 }, 'another'); 'result'=@'
+---
+- This: that
+- Error: 4
+- another
+'@;},
+    [pscustomobject]@{'test'= @(@{ 'This' = 'that' }, 'another'); 'result'=@'
+---
+- This: that
+- another
+'@;},# second test
+    [pscustomobject]@{'test'=  @{ 'This' = 'that' }; 'result'=@'
+---
+This: that
+'@;},# second test
+    [pscustomobject]@{'test'= ([pscustomobject](@{ 'This' = 'that' }, 'another')); 'result'=@'
+---
+- This: that
+- another
+'@;},# second test
+    [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another', 'yet another'); 'result'=@'
+---
+- This: that
+- another
+- yet another
+'@;},# second test
+    [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another',4,65,789.89, 'yet another'); 'result'=@' 
+---
+- This: that
+- another
+- 4
+- 65
+- 789.89
+- yet another
 
-ConvertTo-yaml @{ 'First' = @{ }; 'Second' = @() } -verbose
-#display-object  @{'First'=@{};'Second'=@()}-verbose
+'@;})| foreach{
+$Yaml=''; $yaml=(ConvertTo-YAML $_.test) -join "`r`n"; $result=$_.result; if (!($Yaml.Trim() -eq $result.Trim())) 
+{write-warning "Result `r`n (($Yaml)) should have been `r`n($Result)"}}
 
-ConvertTo-yaml @(@{ 'This' = 'that' }, @{ 'Error' = 4 }, 'another')
-ConvertTo-yaml @(@{ 'This' = 'that' }, 'another')
-ConvertTo-yaml @{ 'This' = 'that' } -verbose
-ConvertTo-yaml ([pscustomobject](@{ 'This' = 'that' }, 'another'))
-ConvertTo-yaml @(@{ 'This' = 'that' }, 'another', 'yet another') 
-ConvertTo-yaml @(@{ 'This' = 'that' }, 'another',4,65,789.89, 'yet another') 
-ConvertTo-yaml @(@{ 'This' = 'that' }, 'another', 4, 65, 789.89, 'yet another') -Verbose
-ConvertTo-yaml $dbdetails 
-([pscustomObject]@{ 'First' = @{ }; 'Second' = @() }).psobject.properties.count

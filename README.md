@@ -57,7 +57,7 @@ e.g.
 
 
 
-## Distribute-LatestVersionOfFile
+## Distribute-LatestVersionOfFile ##
 
-Finds the latest version of a file and copies it over all other existing copies within all the subdirectories of  the base directory you specify. This is a way of ensuring that the latest version of the file is updatd everywhere within the directory structure 
-For the BaseDirectory parameter, you should provide the base directory of the location where the alterations can take place. For the  Filename parameter, you need to provide  the name of the file that you want synchronized across the location
+[Distribute-LatestVersionOfFile.ps1](/Distribute-LatestVersionOfFile/Distribute-LatestVersionOfFile.ps1) Finds the latest version of a file and copies it over all other existing copies within all the subdirectories of  the list of base directories that you specify. This is a way of ensuring that the latest version of the file is updatd everywhere within the directory structure 
+For the BaseDirectory parameter, you should provide one or more  base directories, each of which is a location where the alterations can take place. For the  Filename parameter, you need to provide  the name of the file that you want synchronized across the location
