@@ -5,24 +5,21 @@
 	.DESCRIPTION
 		This is a way of ensuring that the latest version of the file is updated everywhere within the directory structure
 	
-	.PARAMETER BaseDirectories
-		A description of the BaseDirectories parameter.
-	
-	.PARAMETER Filename
-		The name of the file that you want synchronized across the location
-	
 	.PARAMETER BaseDirectory
 		The base directory of the location where the alterations can take place
+	.PARAMETER Filename
+		The name of the file that you want synchronized across the location
 	
 	.EXAMPLE
 		Distribute-LatestVersionOfFile '<MyPathTo>Github' 'DatabaseBuildAndMigrateTasks.ps1'
 		Distribute-LatestVersionOfFile '<MyPathTo>Github' 'preliminary.ps1'
-		Distribute-LatestVersionOfFile @("<MyPathTo>Github","<MyPathTo>FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1'
-		Distribute-LatestVersionOfFile @("<MyPathTo>Github","<MyPathTo>FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1' -verbose
-	
+	    Distribute-LatestVersionOfFile @("<MyPathTo>Github","<MyPathTo>FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1'
+	    Distribute-LatestVersionOfFile @("s:\work\Github","s:\work\FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1' -verbose
+	    Distribute-LatestVersionOfFile @("s:\work\Github","s:\work\FlywayDevelopments") 'preliminary.ps1' -verbose
 	.NOTES
 		Additional information about the function.
 #>
+
 function Distribute-LatestVersionOfFile
 {
 	[CmdletBinding()]
