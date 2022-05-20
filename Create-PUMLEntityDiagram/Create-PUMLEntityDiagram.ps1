@@ -25,7 +25,8 @@
 		The  Date for the diagram.
 	
 	.EXAMPLE
-				Create-PUMLEntityDiagram 'dbo' 'sales' $model 
+                Create-PUMLEntityDiagram '*' '*' $model 
+                Create-PUMLEntityDiagram 'dbo' 'tagtitle' $model 
 	            Create-PUMLEntityDiagram 'dbo' 'sales' $model 'Publications from PubsMySQL 1.1.7' 'phil Factor Enterprises'
 
 #>
@@ -85,30 +86,37 @@ function Create-PUMLEntityDiagram
 	}
 	
 	
-	$WeGottaIterate = $true; #we will always need the first iteration
-	$TheLastPassTotal = 0; #because we haven't done it yet
-	while ($WeGottaIterate)
+	if ($schemaToDo -eq '*' -or $FirstTableToDo -eq '*')
 	{
-		$TablesToDo | foreach{
-			$ItsLinkedTo = @()
-			$TableName = $_.Table; #just the tablename
-			$Schema = $_.Schema; #just the Schema
-			#determine both the tables that refer to it and the tables it reefers to
-			$ItsLinkedTo += $Reference |
-			where { ($_.TableName -eq $Tablename) -and ($_.TableSchema -eq $Schema) } |
-			Foreach { [psCustomObject]@{ 'Schema' = $_.ReferenceSchema; 'Table' = $_.ReferenceTable; } };
-			$ItsLinkedTo += $Reference |
-			where { [psCustomObject]($_.ReferenceTable -eq $Tablename) -and ($_.ReferenceSchema -eq $Schema) } |
-			Foreach { [psCustomObject]@{ 'Schema' = $_.TableSchema; 'Table' = $_.TableName; } }
+		$TotalLinks = $TablesToDo;
+	}
+	else
+	{
+		$WeGottaIterate = $true; #we will always need the first iteration
+		$TheLastPassTotal = 0; #because we haven't done it yet
+		while ($WeGottaIterate)
+		{
+			$TablesToDo | foreach{
+				$ItsLinkedTo = @()
+				$TableName = $_.Table; #just the tablename
+				$Schema = $_.Schema; #just the Schema
+				#determine both the tables that refer to it and the tables it reefers to
+				$ItsLinkedTo += $Reference |
+				where { ($_.TableName -eq $Tablename) -and ($_.TableSchema -eq $Schema) } |
+				Foreach { [psCustomObject]@{ 'Schema' = $_.ReferenceSchema; 'Table' = $_.ReferenceTable; } };
+				$ItsLinkedTo += $Reference |
+				where { [psCustomObject]($_.ReferenceTable -eq $Tablename) -and ($_.ReferenceSchema -eq $Schema) } |
+				Foreach { [psCustomObject]@{ 'Schema' = $_.TableSchema; 'Table' = $_.TableName; } }
+			}
+			$TablesToDo = $ItsLinkedTo | sort -Unique schema, table #process these links subsequently
+			$TotalLinks = $TotalLinks + $ItsLinkedTo | sort -Unique schema, table
+			#we find out which tables are in the group
+			$WeGottaIterate = ($TotalLinks.count -gt $TheLastPassTotal)
+			#Have we grown the group of inter-related tables? 
+			$TheLastPassTotal = $TotalLinks.count
+			#update the count in case we have
+			#otherwise, our task is done
 		}
-		$TablesToDo = $ItsLinkedTo | sort -Unique schema, table #process these links subsequently
-		$TotalLinks = $TotalLinks + $ItsLinkedTo | sort -Unique schema, table
-		#we find out which tables are in the group
-		$WeGottaIterate = ($TotalLinks.count -gt $TheLastPassTotal)
-		#Have we grown the group of inter-related tables? 
-		$TheLastPassTotal = $TotalLinks.count
-		#update the count in case we have
-		#otherwise, our task is done
 	}
 	
 	
