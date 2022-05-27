@@ -22,6 +22,12 @@
 
 	.PARAMETER RerportNodes
 		Do you wish to report on nodes containing objects as well as values?	
+
+    .EXAMPLES 
+        Display-object (get-date);
+       get-date| Display-object
+       $current=Dir $pwd; display-object $current
+
 	.NOTES
 		Additional information about the function.
 #>
@@ -37,8 +43,8 @@ function Display-Object
 		[Object[]]$Avoid = @('#comment'),
 		[string]$Parent = '$',
 		[int]$CurrentDepth = 0,
-        [int]$reportNodes =0,
-        [int]$ordered =$True
+		[int]$reportNodes = 0,
+		[int]$ordered = $True
 	)
 	
 	if (($CurrentDepth -ge $Depth) -or
@@ -49,10 +55,15 @@ function Display-Object
 		#If you can, force it to be a PSCustomObject
 		$TheObject = [pscustomObject]$TheObject;
 		$ObjectTypeName = 'PSCustomObject'
-    elseif ($ObjectTypeName -eq 'Collection`1')#and anything else it spits on 
-        {$TheOldObject=$TheObject
-        $TheObject=$TheOldObject|foreach{[pscustomobject]$_}}
-	} #first do objects that cannot be treated as an array.
+	}
+	elseif ($ObjectTypeName -eq 'Collection`1') #and anything else it spits on 
+	{
+		$TheOldObject = $TheObject
+		$TheObject = $TheOldObject | foreach{
+			[pscustomobject]$_
+		};
+	}
+	#first do objects that cannot be treated as an array.
 	if ($TheObject.Count -le 1 -and $ObjectTypeName -ne 'object[]') #not something that behaves like an array
 	{
 		# figure out where you get the names from
@@ -62,14 +73,16 @@ function Display-Object
 		else
 		{ $MemberType = 'Property' }
 		#now go through the property names, fetching them via GM
-        if ($ordered)
-		 {$TheMembers=$TheObject | gm -MemberType $MemberType | where { $_.Name -notin $Avoid } }
-        else
-         {$TheMembers=$TheObject.PSObject.Properties | Select-Object Name| where { $_.Name -notin $Avoid } }
-        $TheMembers|Foreach{
-			Try { $child = $TheObject.($_.Name); 
-                  $ChildType=$child.GetType().Name;#what is this value
-                }
+		if ($ordered)
+		{ $TheMembers = $TheObject | gm -MemberType $MemberType | where { $_.Name -notin $Avoid } }
+		else
+		{ $TheMembers = $TheObject.PSObject.Properties | Select-Object Name | where { $_.Name -notin $Avoid } }
+		$TheMembers | Foreach{
+			Try
+			{
+				$child = $TheObject.($_.Name);
+				$ChildType = $child.GetType().Name; #what is this value
+			}
 			Catch { $Child = $null; } # avoid crashing on write-only objects
 			$brackets = ''; if ($_.Name -like '*.*') { $brackets = "'" }
 			if ($child -eq $null -or #is the current child a value or a null?
@@ -83,12 +96,12 @@ function Display-Object
 			else #not a value but an object of some sort
 			{
 				if ($ReportNodes -and $childType -ne 'Object[]')
-                {[pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = "($ChildType)" }}
-
+				{ [pscustomobject]@{ 'Path' = "$Parent.$brackets$($_.Name)$brackets"; 'Value' = "($ChildType)" } }
+				
 				Display-Object -TheObject $child -depth $Depth -Avoid $Avoid `
 							   -Parent "$Parent.$brackets$($_.Name)$brackets" `
 							   -CurrentDepth ($currentDepth + 1) `
-                                -ReportNodes $reportNodes
+							   -ReportNodes $reportNodes
 			}
 			
 		}
@@ -111,7 +124,7 @@ function Display-Object
 				{
 					Display-Object -TheObject $child -depth $Depth -Avoid $Avoid -parent "$Parent[$_]" `
 								   -CurrentDepth ($currentDepth + 1) `
-                                    -ReportNodes $reportNodes
+								   -ReportNodes $reportNodes
 				}
 				
 			}
