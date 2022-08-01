@@ -71,12 +71,14 @@ function ConvertTo-InsertStatements
 		{
 			$Names = $LineProperties | foreach{ $_.Name }|where {$_ -notin $exclude}
 			#start a new query (batch them up into rows - there is an optimal amount)
-			"INSERT INTO $table ($($Names -join ', '))`r`n  VALUES"
+			"INSERT INTO $TheTableName ($($Names -join ', '))`r`n  VALUES"
 			$Beginning = $false;
 		}
 		$Values = $LineProperties | where {$_.Name -notin $exclude} | foreach{
-			if ($_.TypeNameOfValue -eq 'System.String') { '"' + $_.Value + '"' }
-			else { $_.Value }
+            if ($_.Value -eq $null) { 'NULL' }
+			elseif ($_.Value -eq 'NULL') { NULL }
+			elseif ($_.TypeNameOfValue -eq 'System.String') { '"' + $_.Value + '"' }
+            else { $_.Value }
 		}
 		$lines += "($($Values -join ', '))";
 		if ($ii-- -eq 0)
