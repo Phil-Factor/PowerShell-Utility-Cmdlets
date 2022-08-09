@@ -38,8 +38,8 @@ function Get-RandomSentence
   [CmdletBinding()]
   param
   (
-    $AllPhraseBanks,
-    $bank
+    $AllPhraseBanks,#the wordbank object to use
+    $bank #the array of phrases within the wordbank to use 
   )
   
   $bankLength = $AllPhraseBanks.$bank.Length

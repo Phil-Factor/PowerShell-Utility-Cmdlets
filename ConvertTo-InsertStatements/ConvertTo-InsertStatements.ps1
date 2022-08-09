@@ -30,9 +30,15 @@
 		A sql command to append  after the end of the insert.This can include a placeholder
 		for the name of the table, (${table}) so you can create a looping construct
 		with the same SQL
+
+	.PARAMETER Rule
+		Where it is impossible to do the conversion from the json datatype (string, number 
+        boolean null true false) to the database type, you can add a conversion for a column
+        by specifying the column. e.g. $MyRules=@{'logo-column'='CONVERT(VARBINARY(MAX),xxx)'}
+        the column has a '-column' suffix to add to clarity. xxx represents the json value.
 	
 	.EXAMPLE
-		PS C:\> ConvertTo-InsertStatements
+		PS C:\> ConvertTo-InsertStatements MyObjectReadFromJSON 'MyTableName'
 	
 	.NOTES
 		Additional information about the function.
@@ -60,10 +66,14 @@ function ConvertTo-InsertStatements
 		[string]$Prequel = $null,
 		[Parameter(Mandatory = $false,
 				   Position = 6)]
-		[string]$Sequel = $null
+		[string]$Sequel = $null,
+        [Parameter(Mandatory = $false,
+				   Position = 7)]
+		[Object[]]$Rules = $null
 	)
 	
 	if ($Prequel -ne $null) { "$Prequel" -ireplace '\${table}', $TheTableName };
+
 	$TheObject | ForEach-Object -Begin { $lines = @(); $ii = $Batch; } -Process {
 		$line = $_;
 		$LineProperties = $line.PSObject.Properties
@@ -76,12 +86,22 @@ function ConvertTo-InsertStatements
 		}
 		$Values = $LineProperties | where {$_.Name -notin $exclude} | foreach{
             if ($_.Value -eq $null) { 'NULL' }
-			elseif ($_.Value -eq 'NULL') { NULL }
-			elseif ($_.TypeNameOfValue -eq 'System.String') { '"' + $_.Value + '"' }
-            else { $_.Value }
+			elseif ($_.Value.ToString() -eq 'NULL') { 'NULL' }
+			elseif ($_.TypeNameOfValue -eq 'System.String') {
+             $TheString='''' + $_.Value.Replace("'","''") + '''' 
+             
+             if ($Rules.("$($_.Name)-column") -ne $null)
+                    {
+                    #write-warning "$($_.Name)-column Rule was used for $($_.Name)!"
+                    $TheRule=[string]$Rules.("$($_.Name)-column")
+                    $TheRule.replace('xxx',$TheString)}
+             else {$TheString}
+             }
+			elseif ($_.TypeNameOfValue -eq 'System.Boolean') { if ($_.Value) {'1'} else {'0'}}
+             else { $_.Value }
 		}
 		$lines += "($($Values -join ', '))";
-		if ($ii-- -eq 0)
+		if ($ii-- -eq 1)
 		{
 			($Lines -join ",`r`n") + ';'
 			$ii = $Batch;
