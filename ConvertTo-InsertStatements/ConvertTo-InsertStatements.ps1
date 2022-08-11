@@ -69,6 +69,9 @@ function ConvertTo-InsertStatements
 		[string]$Sequel = $null,
         [Parameter(Mandatory = $false,
 				   Position = 7)]
+		[Object[]]$Clause = '',
+        [Parameter(Mandatory = $false,
+				   Position = 8)]
 		[Object[]]$Rules = $null
 	)
 	
@@ -81,7 +84,7 @@ function ConvertTo-InsertStatements
 		{
 			$Names = $LineProperties | foreach{ $_.Name }|where {$_ -notin $exclude}
 			#start a new query (batch them up into rows - there is an optimal amount)
-			"INSERT INTO $TheTableName ($($Names -join ', '))`r`n  VALUES"
+			"INSERT INTO $TheTableName ($($Names -join ', '))`r`n  $clause VALUES"
 			$Beginning = $false;
 		}
 		$Values = $LineProperties | where {$_.Name -notin $exclude} | foreach{
