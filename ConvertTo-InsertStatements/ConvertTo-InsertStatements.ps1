@@ -91,7 +91,7 @@ function ConvertTo-InsertStatements
             if ($_.Value -eq $null) { 'NULL' }
 			elseif ($_.Value.ToString() -eq 'NULL') { 'NULL' }
 			elseif ($_.TypeNameOfValue -eq 'System.String') {
-             $TheString='''' + $_.Value.Replace("'","''") + '''' 
+             $TheString='''' + $_.Value.Replace("'","''").Trim() + '''' 
              
              if ($Rules.("$($_.Name)-column") -ne $null)
                     {
@@ -101,6 +101,7 @@ function ConvertTo-InsertStatements
              else {$TheString}
              }
 			elseif ($_.TypeNameOfValue -eq 'System.Boolean') { if ($_.Value) {'1'} else {'0'}}
+			elseif ($_.TypeNameOfValue -eq 'System.DateTime') { '''' + $_.Value + '''' }
              else { $_.Value }
 		}
 		$lines += "($($Values -join ', '))";
@@ -114,3 +115,28 @@ function ConvertTo-InsertStatements
 	
 	if ($Sequel -ne $null) { "$Sequel" -ireplace '\${table}', $TheTableName };
 }
+
+
+$Data = [IO.File]::ReadAllText("\\MillArchive\public\work\Github\FlywayTeamwork\Pubs\Branches\develop\Variants\ImportExport\Versions\1.1.7\Data\dbo.employee.json") | ConvertFrom-json
+$Data|select -first 1| ConvertTo-InsertStatements
+foreach{
+$LineProperties = $_.PSObject.Properties
+$LineProperties
+}
+ $Values = $LineProperties | where {$_.Name -notin $exclude} | foreach{
+            if ($_.Value -eq $null) { 'NULL' }
+			elseif ($_.Value.ToString() -eq 'NULL') { 'NULL' }
+			elseif ($_.TypeNameOfValue -eq 'System.String') {
+             $TheString='''' + $_.Value.Replace("'","''") + '''' 
+             
+             if ($Rules.("$($_.Name)-column") -ne $null)
+                    {
+                    #write-warning "$($_.Name)-column Rule was used for $($_.Name)!"
+                    $TheRule=[string]$Rules.("$($_.Name)-column")
+                    $TheRule.replace('xxx',$TheString)}
+             else {$TheString}
+             }
+			elseif ($_.TypeNameOfValue -eq 'System.Boolean') { if ($_.Value) {'1'} else {'0'}}
+			elseif ($_.TypeNameOfValue -eq 'System.DateTime') { '''' + $_.Value + '''' }
+             else { $_.Value }
+		}
