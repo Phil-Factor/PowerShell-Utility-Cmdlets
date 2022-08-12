@@ -193,38 +193,33 @@ function ConvertTo-YAML
 }
 <# Now to do a few obvious unit tests. Surprisingly, I've failed all these in the past #>
 
-@( # first test
-    [pscustomobject]@{'test'= @{ 'First' = @{ }; 'Second' = @() }; 'result'=@'
----
-Second: null
-First: null
-'@;},# second test
-     [pscustomobject]@{'test'=@(@{ 'This' = 'that' }, @{ 'Error' = 4 }, 'another'); 'result'=@'
+@(# first test
+    [pscustomobject]@{'test'=@(@{ 'This' = 'that' }, @{ 'Error' = 4 }, 'another'); 'result'=@'
 ---
 - This: that
 - Error: 4
 - another
-'@;},
+'@;}, # second test
     [pscustomobject]@{'test'= @(@{ 'This' = 'that' }, 'another'); 'result'=@'
 ---
 - This: that
 - another
-'@;},# second test
+'@;},# third test
     [pscustomobject]@{'test'=  @{ 'This' = 'that' }; 'result'=@'
 ---
 This: that
-'@;},# second test
+'@;},# fourth test
     [pscustomobject]@{'test'= ([pscustomobject](@{ 'This' = 'that' }, 'another')); 'result'=@'
 ---
 - This: that
 - another
-'@;},# second test
+'@;},# fifth test
     [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another', 'yet another'); 'result'=@'
 ---
 - This: that
 - another
 - yet another
-'@;},# second test
+'@;},# sixth test
     [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another',4,65,789.89, 'yet another'); 'result'=@' 
 ---
 - This: that
@@ -236,5 +231,13 @@ This: that
 
 '@;})| foreach{
 $Yaml=''; $yaml=(ConvertTo-YAML $_.test) -join "`r`n"; $result=$_.result; if (!($Yaml.Trim() -eq $result.Trim())) 
-{write-warning "Result `r`n (($Yaml)) should have been `r`n($Result)"}}
+{write-warning "YAML Result `r`n ($Yaml) should have been `r`n($Result)"}}
 
+<# in this test, it turned out there was a PoSh bug, now fixed
+ first test
+    [pscustomobject]@{'test'= @{ 'First' = 1; 'Second' = 2 }; 'result'=@'
+---
+First: null
+Second: null
+'@;}, 
+#>
