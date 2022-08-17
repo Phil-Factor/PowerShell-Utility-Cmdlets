@@ -1,7 +1,6 @@
 ﻿<#
 	.SYNOPSIS
-		Converts a tabular object to a read-only view for SQL Server, PostgreSQL, MySQL, 
-        MriaDB and SQLite
+		Converts a tabular object to a read-only view for any type of SQL Server database
 	
 	.DESCRIPTION
 		A quick way to create the code for a view from an array of objects that all  
@@ -19,8 +18,9 @@
 		list of columns/Keys in the tabular object  to exclude from the view.
 
 	.PARAMETER TypeOfView
-		RDBMSs seem to conform to either the MySQL syntax (a CTE) or the SQL Server/Postgresql 
-        table-bale Constructor (TVC) syntax of the DDL code for the view
+		RDBMSs seem to conform to one of three types of syntax,  the MySQL syntax (a CTE),
+		the SQL Server/Postgresql table-bale Constructor (TVC) syntax of the DDL code for
+		the view, or if nothing else the UNION ALL expression (UNA)
 
 
 	.EXAMPLE
@@ -52,6 +52,7 @@ function ConvertTo-View
 	)
 	$Lines = @()
 	$columnList = @()
+	$firstLine = $true
 	$TheValuesStatements =
 	$TheObject | ForEach-Object {
 		$line = $_;
@@ -64,50 +65,66 @@ function ConvertTo-View
 			) -join ', '
 		}
 		$Values = $LineProperties | where { $_.Name -notin $exclude } | foreach{
-			if ($_.Value -eq $null) { 'NULL' }
-			elseif ($_.Value.ToString() -eq 'NULL') { 'NULL' }
-			elseif ($_.TypeNameOfValue -eq 'System.String')
+			$TheColumn = $_;
+			if ($TheColumn.Value -eq $null) { 'NULL' }
+			elseif ($TheColumn.Value.ToString() -eq 'NULL') { 'NULL' }
+			elseif ($TheColumn.TypeNameOfValue -eq 'System.String')
 			{
-				$TheString = '''' + $_.Value.Replace("'", "''").Trim() + ''''
+				$TheString = '''' + $TheColumn.Value.Replace("'", "''").Trim() + ''''
 				
-				if ($Rules.("$($_.Name)-column") -ne $null)
+				if ($Rules.("$($TheColumn.Name)-column") -ne $null)
 				{
 					#write-warning "$($_.Name)-column Rule was used for $($_.Name)!"
-					$TheRule = [string]$Rules.("$($_.Name)-column")
+					$TheRule = [string]$Rules.("$($TheColumn.Name)-column")
 					$TheRule.replace('xxx', $TheString)
 				}
 				else { $TheString }
 			}
-			elseif ($_.TypeNameOfValue -eq 'System.Boolean')
+			elseif ($TheColumn.TypeNameOfValue -eq 'System.Boolean')
 			{
-				if ($_.Value) { '1' }
+				if ($TheColumn.Value) { '1' }
 				else { '0' }
 			}
-			elseif ($_.TypeNameOfValue -eq 'System.DateTime') { '''' + $_.Value + '''' }
-			else { $_.Value }
+			elseif ($TheColumn.TypeNameOfValue -eq 'System.DateTime')
+			{ '''' + $TheColumn.Value + '''' }
+			else { $TheColumn.Value }
+		} | foreach{
+			if ($firstLine -and $style -notin @('TVC', 'CTE'))
+			{ "$($_) AS `"$($TheColumn.Name)`"" }
+			else { $_ }
 		}
-		$lines += "($($Values -join ', '))";
+		$lines += "$($Values -join ', ')";
+		$FirstLine = $False;
 	}
 	
+	$joinString = "),`r`n(";
 	
 	If ($Style -eq 'TVC')
-	{@"
+	{
+@"
 CREATE VIEW $TheNameOfTheView
 AS
   SELECT $columnList
     FROM
-      ( VALUES $($Lines -join ",`r`n")) AS xxx (
+      ( VALUES ($($Lines -join $joinString))) AS xxx (
     $columnList);
+"@
+	}
+	elseIf ($Style -eq 'CTE')
+	{@"
+CREATE VIEW $TheNameOfTheView
+as
+WITH  xxx($columnList) as 
+  (VALUES ($($Lines -join $joinstring)))
+select $columnList from xxx;
+
 "@
 	}
 	else
 	{ @"
 CREATE VIEW $TheNameOfTheView
 as
-WITH  xxx($columnList) as 
-  (VALUES $($Lines -join ",`r`n"))
-select $columnList from xxx;
-
+SELECT $($Lines -join "`r`nUNION ALL`r`n SELECT ");
 "@
 	}
 	
