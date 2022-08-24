@@ -44,14 +44,17 @@ function ConvertTo-YAML
 			$TheChild,
 			# the value of the key/value pair
 
-			$ThePrefix = ' '
+			$ThePrefix = ' ',
 			# the prefix for the value : or -
+
+			$ThePadding = ''
 			
 		)
-		write-Verbose " depth='$currentdepth', TheKey='$TheKey', TheChild='$TheChild', ThePrefix='$ThePrefix' "
-		if ($TheKey -imatch '[\t \r\n\b\f\v\''\"\\]') #If the key contains json escapes...
+		write-Verbose "padding='$ThePadding' depth='$currentdepth', TheKey='$TheKey', TheChild='$TheChild', ThePrefix='$ThePrefix' "
+		if ($TheKey -imatch '[\t\r\n\b\f\v]') #If the key contains json escapes...
+        #"a!\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~"
 		{ $TheKey = ($TheKey | ConvertTo-json) }; #just so escape it
-		$KeyDeclaration = "$PaddingMaybeIndicator$($TheKey)$($Theprefix) ";
+		$KeyDeclaration = "$ThePadding$($TheKey)$($Theprefix) ";
 		if ($Thechild -eq $null)
 		{
 			Write-Verbose "it was a null!"; $TheValue = 'null'
@@ -106,7 +109,10 @@ function ConvertTo-YAML
 	}
 	
 	$Padding = '                      '.Substring(1, ($currentdepth * 2))
-	$PaddingMaybeIndicator = if ($ParentIsArray) { $Padding.Substring(0, $Padding.Length - 2) + '- ' }
+	$PaddingMaybeIndicator =
+	if
+	($ParentIsArray)
+	{ $Padding.Substring(0, $Padding.Length - 2) + '- ' }
 	else { $Padding };
 	if ($starting)
 	{
@@ -125,7 +131,7 @@ function ConvertTo-YAML
 	}
 	Write-Verbose "converted to $($TheObject.GetType().Name) of count $($TheObject.Count)"
 	
-	if ($TheObject.Count -eq  0)
+	if ($TheObject.Count -eq 0)
 	{
 		Write-Verbose "this '$($TheObject.Name)' has no count - "
 		& $Formatting  "$($_.Name)" $null ''
@@ -133,28 +139,35 @@ function ConvertTo-YAML
 	elseif (!($TheObject.Count -gt 1)) #not something that behaves like an array
 	{
 		#now go through the names 
-		
+		$TheFirst = $true;
 		$TheObject.PSObject.Properties | where { $_.Name -notin $Avoid } | Foreach{
+			if ($TheFirst)
+			{
+				$TheFirst = $false;
+				$TheRightPadding = $PaddingMaybeIndicator
+			}
+			else { $TheRightPadding = $Padding; }
+			
 			$child = $_.value;
-            Write-verbose "Iterating. type of value ='$($_.TypeNameOfValue)' value is '$child' and count $($child.Count) "
+			Write-verbose "Iterating. type of value ='$($_.TypeNameOfValue)' value is '$child' and count $($child.Count) "
 			
 			if ($_.TypeNameOfValue -like '*String*' -or
 				$_.TypeNameOfValue -in @('System.Object', 'System.boolean', 'System.int32', 'System.Decimal'))
 			{
-				& $Formatting  "$($_.Name)" "$child"  ':'
+				& $Formatting  "$($_.Name)" "$child"  ':' $TheRightPadding
 			}
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
-				& $Formatting   "$($_.Name)" "$child" ':'
+				& $Formatting   "$($_.Name)" "$child" ':' $TheRightPadding
 			}
-            elseif ($child -in  @($null,'')) #empty array
-            {
-            & $Formatting   "$($_.Name)" "null" ':'
-            }
-            elseif ($child.count -eq  0) #empty hashtable
-            {
-            & $Formatting   "$($_.Name)" "null" ':'
-            }
+			elseif ($child -in @($null, '')) #empty array
+			{
+				& $Formatting   "$($_.Name)" "null" ':' $TheRightPadding
+			}
+			elseif ($child.count -eq 0) #empty hashtable
+			{
+				& $Formatting   "$($_.Name)" "null" ':' $TheRightPadding
+			}
 			else #not a value but an object of some sort
 			{
 				Write-Verbose "recursion with object  $($_.Name)"
@@ -171,14 +184,19 @@ function ConvertTo-YAML
 		if ($TheObject.Count -gt 0)
 		{
 			0..($TheObject.Count - 1) | Foreach{
+			    if ($_-eq 0)
+			    {
+				    $TheRightPadding = $PaddingMaybeIndicator
+			    }
+			    else { $TheRightPadding = $Padding; }
 				$child = $TheObject[$_];
 				if (($child -eq $null) -or #is the current child a value or a null?
 					($child.GetType().BaseType.Name -eq 'ValueType') -or
 					($child.GetType().Name -in @('String', 'String[]'))) #if so display it 
-				{ & $Formatting  '' $child '-' }
+				{ & $Formatting  '' $child '-' $TheRightPadding }
 				elseif (($CurrentDepth + 1) -eq $Depth)
 				{
-					& $Formatting  '' $child '-'
+					& $Formatting  '' $child '-' $TheRightPadding
 				}
 				else #not a value but an object of some sort so do a recursive call
 				{
@@ -188,56 +206,6 @@ function ConvertTo-YAML
 				}
 			}
 		}
-		else { & $Formatting  '' $null '-' }
+		else { & $Formatting  '' $null '-' $TheRightPadding }
 	}
 }
-<# Now to do a few obvious unit tests. Surprisingly, I've failed all these in the past #>
-
-@(# first test
-    [pscustomobject]@{'test'=@(@{ 'This' = 'that' }, @{ 'Error' = 4 }, 'another'); 'result'=@'
----
-- This: that
-- Error: 4
-- another
-'@;}, # second test
-    [pscustomobject]@{'test'= @(@{ 'This' = 'that' }, 'another'); 'result'=@'
----
-- This: that
-- another
-'@;},# third test
-    [pscustomobject]@{'test'=  @{ 'This' = 'that' }; 'result'=@'
----
-This: that
-'@;},# fourth test
-    [pscustomobject]@{'test'= ([pscustomobject](@{ 'This' = 'that' }, 'another')); 'result'=@'
----
-- This: that
-- another
-'@;},# fifth test
-    [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another', 'yet another'); 'result'=@'
----
-- This: that
-- another
-- yet another
-'@;},# sixth test
-    [pscustomobject]@{'test'=  @(@{ 'This' = 'that' }, 'another',4,65,789.89, 'yet another'); 'result'=@' 
----
-- This: that
-- another
-- 4
-- 65
-- 789.89
-- yet another
-
-'@;})| foreach{
-$Yaml=''; $yaml=(ConvertTo-YAML $_.test) -join "`r`n"; $result=$_.result; if (!($Yaml.Trim() -eq $result.Trim())) 
-{write-warning "YAML Result `r`n ($Yaml) should have been `r`n($Result)"}}
-
-<# in this test, it turned out there was a PoSh bug, now fixed
- first test
-    [pscustomobject]@{'test'= @{ 'First' = 1; 'Second' = 2 }; 'result'=@'
----
-First: null
-Second: null
-'@;}, 
-#>
