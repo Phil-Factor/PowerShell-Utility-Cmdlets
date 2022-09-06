@@ -1,19 +1,22 @@
 ﻿<#
 	.SYNOPSIS
 		Get a github repository and download it to a local directory/folder.
+        This used to be able to download directories but Github stopped
+        that. 
 	
 	.DESCRIPTION
 		This is a powershell cmdlet that allows you to download a 
         reposoitory or just a directory from a repository. 
 	
 	.PARAMETER Owner
-		The owner of the repository
+		The owner of the repository e.g. 'Phil-Factor'
 	
 	.PARAMETER Repository
-		the name of the github repository
+		the name of the github repository e.g. 'PowerShell-Utility-Cmdlets'
 	
-	.PARAMETER RepoPath
+	.PARAMETER RepoPath e.g. 
 		the path within the repository where you want to download.
+        eg 'archive/refs/heads/main' or 'archive/refs/heads/master'
 	
 	.PARAMETER DestinationPath
 		the local path to where you want to save the files
@@ -22,8 +25,8 @@
 		$Params = @{
 			'Owner' = 'Phil-Factor';
 			'Repository' = 'PubsAndFlyway';
-			'RepoPath' = 'PubsPostgreSQL';
-			'DestinationPath' = "$env:Temp\PubsPostgreSQL";
+			'RepoPath' = 'archive/refs/heads/main';
+			'DestinationPath' = "d:\PubsPostgreSQL";
 		}
 		Get-FilesFromRepo @Params
 
@@ -53,55 +56,12 @@ function Get-FilesFromRepo
 		[string]$DestinationPath #the local path to where you want to save the files
 	)
 	
-	$baseUri = "https://api.github.com/"
-	$Theargs = "repos/$Owner/$Repository/contents/$RepoPath"
-	write-verbose "$baseuri $Theargs"
-	$files = @(); $Directories = @();
-	((Invoke-WebRequest -Uri "$baseuri$Theargs").content | ConvertFrom-Json) |
-	foreach {
-		if ($_.type -eq 'file')
-		{ $files += $_.download_url; }
-		else
-		{ $directories += $_.name; }
-	}
-	
-	$directories | ForEach {
-		$Params = @{
-			'Owner' = $Owner;
-			'Repository' = $Repository;
-			'RepoPath' = "$RepoPath/$($_)";
-			'DestinationPath' = "$DestinationPath\$([uri]::UnescapeDataString($_))";
-		}
-		Get-FilesFromRepo @Params
-	}
-	
-	
-	if (-not (Test-Path $DestinationPath -PathType Container))
-	{
-		# create the destination path if it doesn't exist
-		try
-		{
-			$null = New-Item -Path $DestinationPath -ItemType Directory
-		}
-		catch
-		{
-			throw "Could not create path '$DestinationPath'!"
-		}
-	}
-	
-	$files | foreach{
-		$filename = Split-Path $_ -Leaf # get the filename
-		$fileDestination = "$DestinationPath\$([uri]::UnescapeDataString($filename))"
-		#we have to strip off any escapes because files allow spaces!
-		try
-		{
-			Invoke-WebRequest -Uri $_ -OutFile $fileDestination -ErrorAction Stop
-			#download the file(s))
-			write-verbose "saved $_ to $fileDestination"
-		}
-		catch
-		{
-			throw "couldn't download $_ to '$($fileDestination)'"
-		}
-	}
+
+    $baseUri = "https://github.com"
+	$MyZipFile="$env:temp\$owner.zip"
+    write-verbose "downloading the file  $baseUri/$Owner/$Repository/$RepoPath.zip"
+    Invoke-WebRequest "$baseUri/$Owner/$Repository/$RepoPath.zip" -OutFile $MyZipFile
+    Expand-Archive -Path $MyZipFile -DestinationPath $DestinationPath
+    Remove-Item $MyZipFile
+
 }
