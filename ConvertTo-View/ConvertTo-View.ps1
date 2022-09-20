@@ -1,6 +1,7 @@
 ﻿<#
 	.SYNOPSIS
-		Converts a tabular object to a read-only view for any type of SQL Server database
+		Converts a tabular object to a read-only view for SQL Server, PostgreSQL, MySQL, 
+        MriaDB and SQLite
 	
 	.DESCRIPTION
 		A quick way to create the code for a view from an array of objects that all  
@@ -18,9 +19,8 @@
 		list of columns/Keys in the tabular object  to exclude from the view.
 
 	.PARAMETER TypeOfView
-		RDBMSs seem to conform to one of three types of syntax,  the MySQL syntax (a CTE),
-		the SQL Server/Postgresql table-bale Constructor (TVC) syntax of the DDL code for
-		the view, or if nothing else the UNION ALL expression (UNA)
+		RDBMSs seem to conform to either the MySQL syntax (a CTE) or the SQL Server/Postgresql 
+        table-bale Constructor (TVC) syntax of the DDL code for the view
 
 
 	.EXAMPLE
@@ -42,7 +42,7 @@ function ConvertTo-View
 		[string]$TheNameOfTheView,
 		[Parameter(Mandatory = $False,
 				   Position = 3)]
-		[string]$style = 'TVC',
+		[string]$style='TVC',
 		[Parameter(Mandatory = $false,
 				   Position = 4)]
 		[Array]$exclude = @(),
@@ -50,9 +50,9 @@ function ConvertTo-View
 				   Position = 5)]
 		[Object[]]$Rules = $null
 	)
-	$Lines = @()
+	$Lines=@()
 	$columnList = @()
-	$firstLine = $true
+    $firstLine = $true
 	$TheValuesStatements =
 	$TheObject | ForEach-Object {
 		$line = $_;
@@ -65,7 +65,7 @@ function ConvertTo-View
 			) -join ', '
 		}
 		$Values = $LineProperties | where { $_.Name -notin $exclude } | foreach{
-			$TheColumn = $_;
+            $TheColumn=$_;
 			if ($TheColumn.Value -eq $null) { 'NULL' }
 			elseif ($TheColumn.Value.ToString() -eq 'NULL') { 'NULL' }
 			elseif ($TheColumn.TypeNameOfValue -eq 'System.String')
@@ -85,21 +85,20 @@ function ConvertTo-View
 				if ($TheColumn.Value) { '1' }
 				else { '0' }
 			}
-			elseif ($TheColumn.TypeNameOfValue -eq 'System.DateTime')
-			{ '''' + $TheColumn.Value + '''' }
+			elseif ($TheColumn.TypeNameOfValue -eq 'System.DateTime') 
+                    { '''' + $TheColumn.Value + '''' }
 			else { $TheColumn.Value }
-		} | foreach{
-			if ($firstLine -and $style -notin @('TVC', 'CTE'))
-			{ "$($_) AS `"$($TheColumn.Name)`"" }
-			else { $_ }
-		}
+		} |foreach{
+            if ($firstLine -and $style -notin @('TVC','CTE'))
+                        { "$($_) AS `"$($TheColumn.Name)`""} else {$_}
+                        }
 		$lines += "$($Values -join ', ')";
-		$FirstLine = $False;
+           $FirstLine=$False;
 	}
+    
+$joinString="),`r`n(";
 	
-	$joinString = "),`r`n(";
-	
-	If ($Style -eq 'TVC')
+If ($Style -eq 'TVC')
 	{
 @"
 CREATE VIEW $TheNameOfTheView
@@ -110,7 +109,7 @@ AS
     $columnList);
 "@
 	}
-	elseIf ($Style -eq 'CTE')
+    elseIf ($Style -eq 'CTE')
 	{@"
 CREATE VIEW $TheNameOfTheView
 as
@@ -129,3 +128,22 @@ SELECT $($Lines -join "`r`nUNION ALL`r`n SELECT ");
 	}
 	
 }
+
+<#
+
+$result=@'
+[
+ {"Country":"Irish","First":"Dé Luan", "Second":"Dé Mairt", "Third":"Dé Céadaoin","Fourth":"Déardaoin","Fifth":"Dé h-Aoine","Sixth":"Dé Sathairn","Seventh":"Dé Domhnaigh"},
+ {"Country":"German","First":"Montag","Second":"Dienstag","Third":"Mittwoch","Fourth":"Donnerstag","Fifth":"Freitag","Sixth":"Samstag","Seventh":"Sonntag"},
+ {"Country":"Galician","First":"luns","Second":"martes","Third":"mércores","Fourth":"xoves","Fifth":"venres","Sixth":"sábado","Seventh":"domingo"},
+ {"Country":"British","First":"Monday","Second":"Tuesday","Third":"Wednesday","Fourth":"Thursday","Fifth":"Friday","Sixth":"Saturday","Seventh":"Sunday"},
+ {"Country":"French","First":"Lund1","Second":"mardi","Third":"mercredi","Fourth":"jeudi","Fifth":"vendredi","Sixth":"samedi","Seventh":"Dimanche"},
+ {"Country":"Italian","First":"	lunedì","Second":"martedì","Third":"mercoledì","Fourth":"giovedì","Fifth":"venerdì","Sixth":"	sabato","Seventh":"domenica"}]
+'@|convertfrom-json
+
+convertTo-View -TheObject $result -TheNameOfTheView 'WordsForWeekdays' -style 'CTE'
+
+convertTo-View -TheObject $result -TheNameOfTheView 'employee' -style 'TVC'
+
+   convertTo-View -TheObject $result -TheNameOfTheView 'employee' -style 'SIMPLE'
+#>
