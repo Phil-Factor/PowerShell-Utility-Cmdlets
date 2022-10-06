@@ -42,7 +42,7 @@ function ConvertTo-View
 		[string]$TheNameOfTheView,
 		[Parameter(Mandatory = $False,
 				   Position = 3)]
-		[string]$style='TVC',
+		[string]$style = 'TVC',
 		[Parameter(Mandatory = $false,
 				   Position = 4)]
 		[Array]$exclude = @(),
@@ -50,9 +50,9 @@ function ConvertTo-View
 				   Position = 5)]
 		[Object[]]$Rules = $null
 	)
-	$Lines=@()
+	$Lines = @()
 	$columnList = @()
-    $firstLine = $true
+	$firstLine = $true
 	$TheValuesStatements =
 	$TheObject | ForEach-Object {
 		$line = $_;
@@ -65,7 +65,7 @@ function ConvertTo-View
 			) -join ', '
 		}
 		$Values = $LineProperties | where { $_.Name -notin $exclude } | foreach{
-            $TheColumn=$_;
+			$TheColumn = $_;
 			if ($TheColumn.Value -eq $null) { 'NULL' }
 			elseif ($TheColumn.Value.ToString() -eq 'NULL') { 'NULL' }
 			elseif ($TheColumn.TypeNameOfValue -eq 'System.String')
@@ -85,20 +85,21 @@ function ConvertTo-View
 				if ($TheColumn.Value) { '1' }
 				else { '0' }
 			}
-			elseif ($TheColumn.TypeNameOfValue -eq 'System.DateTime') 
-                    { '''' + $TheColumn.Value + '''' }
+			elseif ($TheColumn.TypeNameOfValue -eq 'System.DateTime')
+			{ '''' + $TheColumn.Value + '''' }
 			else { $TheColumn.Value }
-		} |foreach{
-            if ($firstLine -and $style -notin @('TVC','CTE'))
-                        { "$($_) AS `"$($TheColumn.Name)`""} else {$_}
-                        }
+		} | foreach{
+			if ($firstLine -and $style -notin @('TVC', 'CTE'))
+			{ "$($_) AS `"$($TheColumn.Name)`"" }
+			else { $_ }
+		}
 		$lines += "$($Values -join ', ')";
-           $FirstLine=$False;
+		$FirstLine = $False;
 	}
-    
-$joinString="),`r`n(";
 	
-If ($Style -eq 'TVC')
+	$joinString = "),`r`n(";
+	
+	If ($Style -eq 'TVC')
 	{
 @"
 CREATE VIEW $TheNameOfTheView
@@ -109,7 +110,7 @@ AS
     $columnList);
 "@
 	}
-    elseIf ($Style -eq 'CTE')
+	elseIf ($Style -eq 'CTE')
 	{@"
 CREATE VIEW $TheNameOfTheView
 as
