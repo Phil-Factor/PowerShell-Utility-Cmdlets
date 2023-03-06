@@ -35,21 +35,15 @@ function Tokenize_SQLString
 	if ($parserRegex -eq $null)
 	{
 		$parserRegex = [regex]@'
-(?i)(?s)([\s]+)?((?#
- A block comment)/\*.*?\*/|(?#
- End-of-line comment)--[^\n]*?\r|(?#
- A string)N?'.*?'|(?#
- a Number- parhaps with punctuation
-)[+\-]?[0-9]+\.?[0-9]{0,100}[+\-0-9E]{0,6}|(?#
-two-part Dot Referenced Name with or without []
-)\[?\w+\]?\.\[?\w+\]?|(?#
-two-part Dot Referenced Name with or without "" 
-)\"?\w+\"?\.\"?\w+\"?|(?#
- Square-bracketed word)\[\w+\]|(?#
- Quoted identifier)".*?"|(?#
- A keyword)[@]?[\p{N}\p{L}_][\p{L}\p{N}@$#_]{0,127}|(?#
- Punctuation)[^\w\s\r\n])(?#
-Terminating)([ ]*)?(?:\r)?(\n)?
+(?i)(?s)(?<BlockComment>/\*.*?\*/)|(?#
+)(?<EndOfLineComment>--[^\n]*?\n)|(?#
+)(?<String>N?'.*?')|(?#
+)(?<number>[+\-]?\d+\.?\d{0,100}[+\-0-9E]{0,6})|(?#
+)(?<SquareBracketed>\[.{1,255}?\])|(?#
+)(?<Quoted>".{1,255}?")|(?#
+)(?<Identifier>[@]?[\p{N}\p{L}_][\p{L}\p{N}@$#_]{0,127})|(?#
+)(?<Operator><>|<=>|>=|<=|==|=|!=|!|<<|>>|<|>|\|\||\||&&|&|-|\+|\*(?!/)|/(?!\*)|\%|~|\^|\?)|(?#
+)(?<Punctuation>[^\w\s\r\n])
 '@
 	}
 	$LineRegex = [regex]'(\r\n|\r|\n)';
@@ -68,7 +62,7 @@ Terminating)([ ]*)?(?:\r)?(\n)?
 		'DESCRIPTOR', 'DESTRUCTOR', 'DIAGNOSTICS', 'DICTIONARY', 'DISCONNECT', 'DO', 'DOMAIN', 'DOUBLE',
 		'DROP', 'ELEMENT', 'END-EXEC', 'EQUALS', 'ESCAPE', 'EXCEPT', 'EXCEPTION', 'EXECUTE',
 		'EXIT', 'EXPAND', 'EXPANDING', 'FALSE', 'FIRST', 'FLOAT', 'FOR', 'FOREIGN', 'FREE',
-		'FROM', 'FUNCTION', 'FUSION', 'GENERAL', 'GET', 'GLOBAL', 'GOTO', 'GROUP', 'GROUPING',
+		'FROM', 'FUNCTION', 'FUSION', 'GENERAL', 'GET', 'GLOBAL', 'GO', 'GOTO', 'GROUP', 'GROUPING',
 		'HANDLER', 'HASH', 'HOUR', 'IDENTITY', 'IF', 'IGNORE', 'IMMEDIATE', 'IN', 'INDICATOR',
 		'INITIALIZE', 'INITIALLY', 'INNER', 'INOUT', 'INPUT', 'INSERT', 'INT', 'INTEGER', 'INTERSECT',
 		'INTERSECTION', 'INTERVAL', 'INTO', 'IS', 'ISOLATION', 'ITERATE', 'JOIN', 'KEY', 'LANGUAGE',
@@ -93,13 +87,28 @@ Terminating)([ ]*)?(?:\r)?(\n)?
 		'VALUES', 'VARCHAR', 'VARIABLE', 'VARYING', 'VIEW', 'WHEN', 'WHENEVER', 'WHERE',
 		'WHILE', 'WITH', 'WRITE', 'YEAR', 'ZONE');
 	
+	
+	
 	$allmatches = $parserRegex.Matches($SQLString);
 	$Lines = $Lineregex.Matches($SQLString); #get the offset where lines start
-	$allMatches | foreach -Begin { $Theline = 1 } {
+	$allmatches | foreach  {
+		$_.Groups | where { $_.success -eq $true -and $_.name -ne 0 }
+	} |
+	Select name, index, length, value,
+		   @{ n = "Type"; e = { '' } }, @{ n = "line"; e = { 0 } },
+		   @{ n = "column"; e = { 0 } } | foreach -Begin {
+		$state = 'not'; $held = @(); $FirstIndex = $null; $Theline = 1
+	}{
 		#get the location and value
-		$TheValue = ($_.Groups[2].Value).Trim();
-		$TheIndex = $_.Groups[2].Index;
-		$TheLength = $_.Groups[2].length;
+		$Token = $_;
+		if ($Token.name -eq 'identifier')
+		{
+			if ($Token.Value -in $ReservedSQLWords)
+			{ $Token.Type = 'Keyword' }
+			else
+			{ $Token.Type = 'Reference' }
+		}
+		$TheIndex = $Token.Index;
 		While ($lines.count -gt $TheLine -and #do we bump the line number
 			$lines[$TheLine - 1].Index -lt $TheIndex)
 		{ $Theline++ }
@@ -109,34 +118,55 @@ Terminating)([ ]*)?(?:\r)?(\n)?
 			({ $PSItem -le 2 }) { 0 }
 			Default { $lines[$TheLine - 2].Index }
 		}
-		$Type = switch -Regex ($TheValue)
+		$TheColumn = $TheIndex - $TheStart;
+		$Token.'Line' = $TheLine; $Token.'Column' = $TheColumn;
+		$ItsAnIdentifier = ($_.name -in ('SquareBracketed', 'Quoted', 'identifier'));
+		$ItsADot = ($_.name -eq 'Punctuation' -and $_.value -eq '.')
+		switch ($state)
 		{
-			'\A(?s)/\*.*?\*/\z'         { 'BlockComment'; Break }
-			'\A--[^\n]*?\r?\z'          { 'End-of-lineComment'; Break }
-			"(?s)\AN?'.*?'\z"           { 'String'; Break } #a string
-			'(?s)\A[+\-]?[0-9]+\.?[0-9]{0,100}[+\-0-9E]{0,6}\z'  { 'Number'; Break }
-			'\A\[?\w+\]?\.\[?\w+\]?\z'  { 'DotReferencedName'; Break } #Square-bracketed      
-			'\A\"?\w+\"?\.\"?\w+\"?\z'  { 'DotReferencedName'; Break } #quotedDelimiter 
-			'\A\[\w+\]\z'               { 'Identifier'; Break } #Square-bracketed 
-			'\A".*?"\z'                 { 'Identifier'; Break } #quotedDelimiter
-			'\A[@]?[\p{N}\p{L}_][\p{L}\p{N}@$#_]{0,127}\z'{ 'Identifier'; Break }
-			'\A[^\w\s\r\n]\z'           { 'punctuation'; Break }
-			Default { 'Unknown'; Break }
-		}
-		if ($Type -eq 'identifier')
-		{
-			if ($TheValue -in $ReservedSQLWords)
-			{ $Type = 'Keyword' }
-		}
-		[psCustomObject]@{
-			'Index' = $TheIndex; 'Length' = $TheLength;
-			'Line' = $TheLine; 'Column' = $TheIndex - $TheStart;
-			'Type' = $type; 'Value' = $TheValue;
-		}
+			'not' {
+				if ($ItsAnIdentifier)
+				{ $Held += $token; $FirstIndex = $token.index; $FirstLine = $TheLine; $FirstColumn = $TheColumn; $state = 'first'; }
+				else { write-output $token }
+				break
+			}
+			
+			'first' {
+				if ($ItsADot) { $state = 'another'; }
+				else { write-output $held; write-output $token; $held = @(); $state = 'not' }
+				; break
+			}
+			'another' { $Held += $token; $state = 'following'; break }
+			'following' {
+				if ($ItsADot) { $state = 'another' }
+				else
+				{
+					write-verbose '---Gotit'
+					$held | foreach -begin { $length = 0; $ref = "" } {
+						$ref = "$ref.$($_.value.trim())"; $length += $_.length;
+					}
+					$ref = $ref.trim('.')
+					[psCustomObject]@{
+						'Name' = 'identifier'; 'index' = $FirstIndex; 'Length' = $length;
+						'Value' = $ref; 'Type' = "$($Held.Count)-Part Dotted Reference";
+						'Line' = $FirstLine; 'Column' = $FirstColumn
+					}
+					Write-output $token
+					$held = @()
+					$state = 'not'
+				}
+			} # end more
+			
+		} # end switch	
+		
 	}
 }
+
+
+
 #-----sanity check
-$correct = "CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
+$Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments
+ select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
 $values = @'
 CREATE VIEW [dbo].[titleview] /* this is a test view */
 AS --with comments
@@ -146,8 +176,9 @@ where authors.au_id = titleauthor.au_id
    AND titles.title_id = titleauthor.title_id
 
 GO
-
 '@ | Tokenize_SQLString | Select -ExpandProperty Value
-if (($values -join ' ') -ne $correct)
-{ write-warning "ooh. that wasn't right" }
+$resultingString=($values -join ' ')
+if ($resultingString -ne $correct)
+{ write-warning "ooh. that wasn't right"}
+
 #-----end of sanity check
