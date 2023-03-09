@@ -88,12 +88,16 @@ function Tokenize_SQLString
 		'WHILE', 'WITH', 'WRITE', 'YEAR', 'ZONE');
 	
 	
-	
-	$allmatches = $parserRegex.Matches($SQLString);
+	# we start by breaking the string up into a pipeline of objects according to the
+    # type of string. First get the match objects
+	$allmatches = $parserRegex.Matches($SQLString)
+    # we also break the script up into lines
 	$Lines = $Lineregex.Matches($SQLString); #get the offset where lines start
-	$allmatches | foreach  {
+	# we put each token through a pipeline to attach the line and column for 
+    # each token 
+    $allmatches | foreach  {
 		$_.Groups | where { $_.success -eq $true -and $_.name -ne 0 }
-	} |
+	} | # now e convert each object with the columns we 
 	Select name, index, length, value,
 		   @{ n = "Type"; e = { '' } }, @{ n = "line"; e = { 0 } },
 		   @{ n = "column"; e = { 0 } } | foreach -Begin {
@@ -122,26 +126,31 @@ function Tokenize_SQLString
 		$Token.'Line' = $TheLine; $Token.'Column' = $TheColumn;
 		$ItsAnIdentifier = ($_.name -in ('SquareBracketed', 'Quoted', 'identifier'));
 		$ItsADot = ($_.name -eq 'Punctuation' -and $_.value -eq '.')
+        write-verbose " state '$state' '$($token.value)'  $ItsADot $ItsAnIdentifier " 
 		switch ($state)
 		{
 			'not' {
 				if ($ItsAnIdentifier)
-				{ $Held += $token; $FirstIndex = $token.index; $FirstLine = $TheLine; $FirstColumn = $TheColumn; $state = 'first'; }
+				{ $Held += $token; $FirstIndex = $token.index; 
+                  $FirstLine = $TheLine; $FirstColumn = $TheColumn; $state = 'first'; }
 				else { write-output $token }
 				break
 			}
 			
 			'first' {
 				if ($ItsADot) { $state = 'another'; }
-				else { write-output $held; write-output $token; $held = @(); $state = 'not' }
+				elseif ($ItsAnIdentifier) 
+                    {write-output $held; $held = @(); $Held += $token }
+                else
+                    { write-output $held; write-output $token; $held = @(); $state = 'not' }
 				; break
 			}
-			'another' { $Held += $token; $state = 'following'; break }
+			'another' { if (!($ItsADot)) {$state = 'following'} else {$Token.Value=''};
+                       $Held += $token; break }
 			'following' {
 				if ($ItsADot) { $state = 'another' }
 				else
 				{
-					write-verbose '---Gotit'
 					$held | foreach -begin { $length = 0; $ref = "" } {
 						$ref = "$ref.$($_.value.trim())"; $length += $_.length;
 					}
@@ -164,7 +173,7 @@ function Tokenize_SQLString
 
 
 
-#-----sanity check
+#-----sanity checks
 $Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments
  select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
 $values = @'
@@ -179,6 +188,35 @@ GO
 '@ | Tokenize_SQLString | Select -ExpandProperty Value
 $resultingString=($values -join ' ')
 if ($resultingString -ne $correct)
-{ write-warning "ooh. that wasn't right"}
+{ write-warning "ooh. that first test wasn't right"}
+
+$result=@'
+Select * from MyServer.MyDatabase.MySchema.MyTable
+Select * from MyDatabase.MySchema.MyTable
+Select * from MyDatabase..MyTable
+Select * from MySchema.MyTable
+Select * from [My Server].MyDatabase.[My Schema].MyTable
+Select * from "MyDatabase".MySchema.MyTable
+Select * from MyDatabase..[MyTable]
+Select * from MySchema."MyTable"
+'@ |
+Tokenize_SQLString | 
+     where {$_.type -like '*Part Dotted Reference'}|
+        Select Value, line, Type
+$ReferenceObject=@'
+[{"Value":"MyServer.MyDatabase.MySchema.MyTable","Line":1,"Type":"4-Part Dotted Reference"},
+  {"Value":"MyDatabase.MySchema.MyTable","Line":2,"Type":"3-Part Dotted Reference"},
+  {"Value":"MyDatabase..MyTable","Line":3,"Type":"3-Part Dotted Reference"},
+  {"Value":"MySchema.MyTable","Line":4,"Type":"2-Part Dotted Reference"},
+  {"Value":"[My Server].MyDatabase.[My Schema].MyTable","Line":5,"Type":"4-Part Dotted Reference"},
+  {"Value":"\"MyDatabase\".MySchema.MyTable","Line":6,"Type":"3-Part Dotted Reference"},
+  {"Value":"MyDatabase..[MyTable]","Line":7,"Type":"3-Part Dotted Reference"}
+  ]
+'@ | convertfrom-json
+
+$BadResults=Compare-Object -Property Value, Line, Type -IncludeEqual -ReferenceObject $ReferenceObject -DifferenceObject $result |
+    where {$_.sideIndicator -ne '=='}
+if ($BadResults.Count -ne 0) { write-warning "ooh. that first test wasn't right"}
 
 #-----end of sanity check
+
