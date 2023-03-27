@@ -105,12 +105,21 @@ function Tokenize_SQLString
 	}{
 		#get the location and value
 		$Token = $_;
-		if ($Token.name -eq 'identifier')
+		$ItsAnIdentifier = ($Token.name -in ('SquareBracketed', 'Quoted', 'identifier'));
+		if ($ItsAnIdentifier)
 		{
-			if ($Token.Value -in $ReservedSQLWords)
-			{ $Token.Type = 'Keyword' }
+            $TheString=switch ($Token.name )
+            {
+            'SquareBracketed' { $Token.Value.TrimStart('[').TrimEnd(']') }
+            'Quoted' { $Token.Value.Trim('"') }
+            default {$Token.Value}
+            }
+            $Token.Type = $Token.Name; 
+			if ($TheString -in $ReservedSQLWords)
+			{ $Token.Name='Keyword'  }
 			else
-			{ $Token.Type = 'Reference' }
+			{ $Token.Name = 'Reference' }
+            
 		}
 		$TheIndex = $Token.Index;
 		While ($lines.count -gt $TheLine -and #do we bump the line number
@@ -124,9 +133,8 @@ function Tokenize_SQLString
 		}
 		$TheColumn = $TheIndex - $TheStart;
 		$Token.'Line' = $TheLine; $Token.'Column' = $TheColumn;
-		$ItsAnIdentifier = ($_.name -in ('SquareBracketed', 'Quoted', 'identifier'));
 		$ItsADot = ($_.name -eq 'Punctuation' -and $_.value -eq '.')
-        write-verbose " state '$state' '$($token.value)'  $ItsADot $ItsAnIdentifier " 
+        #write-verbose " state '$state' '$($token.value)'  $ItsADot $ItsAnIdentifier " 
 		switch ($state)
 		{
 			'not' {
@@ -174,8 +182,7 @@ function Tokenize_SQLString
 
 
 #-----sanity checks
-$Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments
- select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
+$Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
 $values = @'
 CREATE VIEW [dbo].[titleview] /* this is a test view */
 AS --with comments
@@ -209,19 +216,33 @@ Tokenize_SQLString |
      where {$_.type -like '*Part Dotted Reference'}|
         Select Value, line, Type
 $ReferenceObject=@'
-[{"Value":"MyServer.MyDatabase.MySchema.MyTable","Line":2,"Type":"4-Part Dotted Reference"},
-  {"Value":"MyDatabase.MySchema.MyTable","Line":4,"Type":"3-Part Dotted Reference"},
-  {"Value":"MyDatabase..MyTable","Line":5,"Type":"3-Part Dotted Reference"},
-  {"Value":"MySchema.MyTable","Line":6,"Type":"2-Part Dotted Reference"},
-  {"Value":"[My Server].MyDatabase.[My Schema].MyTable","Line":7,"Type":"4-Part Dotted Reference"},
-  {"Value":"\"MyDatabase\".MySchema.MyTable","Line":8,"Type":"3-Part Dotted Reference"},
-  {"Value":"MyDatabase..[MyTable]","Line":9,"Type":"3-Part Dotted Reference"}
+[{"Value":"MyServer.MyDatabase.MySchema.MyTable","Line":3,"Type":"4-Part Dotted Reference"},
+  {"Value":"MyDatabase.MySchema.MyTable","Line":5,"Type":"3-Part Dotted Reference"},
+  {"Value":"MyDatabase..MyTable","Line":6,"Type":"3-Part Dotted Reference"},
+  {"Value":"MySchema.MyTable","Line":7,"Type":"2-Part Dotted Reference"},
+  {"Value":"[My Server].MyDatabase.[My Schema].MyTable","Line":8,"Type":"4-Part Dotted Reference"},
+  {"Value":"\"MyDatabase\".MySchema.MyTable","Line":9,"Type":"3-Part Dotted Reference"},
+  {"Value":"MyDatabase..[MyTable]","Line":10,"Type":"3-Part Dotted Reference"},
+  {"Value":"MySchema.\"MyTable\"","Line":11,"Type":"2-Part Dotted Reference"}
   ]
 '@ | convertfrom-json
 
 $BadResults=Compare-Object -Property Value, Line, Type -IncludeEqual -ReferenceObject $ReferenceObject -DifferenceObject $result |
     where {$_.sideIndicator -ne '=='}
-if ($BadResults.Count -ne 0) { write-warning "ooh. that first test wasn't right"}
+if ($BadResults.Count -ne 0) { write-warning "ooh. that second test wasn't right"}
 
+
+$Correct=[ordered]@{}
+$TestValues=[ordered]@{}
+$Correct=@'
+[{"Name":"Keyword","Value":"CREATE"},{"Name":"Keyword","Value":"TABLE"},{"Name":"Reference","Value":"tricky"},{"Name":"Punctuation","Value":"("},{"Name":"Keyword","Value":"\"NULL\""},{"Name":"Keyword","Value":"[INT]"},{"Name":"Keyword","Value":"DEFAULT"},{"Name":"Keyword","Value":"NULL"},{"Name":"Punctuation","Value":")"},{"Name":"Keyword","Value":"INSERT"},{"Name":"Keyword","Value":"INTO"},{"Name":"Reference","Value":"tricky"},{"Name":"Punctuation","Value":"("},{"Name":"Keyword","Value":"\"NULL\""},{"Name":"Punctuation","Value":")"},{"Name":"Keyword","Value":"VALUES"},{"Name":"Punctuation","Value":"("},{"Name":"Keyword","Value":"NULL"},{"Name":"Punctuation","Value":")"},{"Name":"Keyword","Value":"SELECT"},{"Name":"Keyword","Value":"NULL"},{"Name":"Keyword","Value":"AS"},{"Name":"Keyword","Value":"\"VALUE\""},{"Name":"Punctuation","Value":","},{"Name":"Keyword","Value":"[null]"},{"Name":"Punctuation","Value":","},{"Name":"Keyword","Value":"\"null\""},{"Name":"Punctuation","Value":","},{"Name":"String","Value":"\u0027NULL\u0027"},{"Name":"Keyword","Value":"as"},{"Name":"Reference","Value":"\"String\""},{"Name":"Keyword","Value":"FROM"},{"Name":"Reference","Value":"tricky"},{"Name":"Punctuation","Value":";"}]
+'@|convertfrom-json 
+$TestValues= Tokenize_SQLString @'
+ CREATE TABLE tricky ("NULL" [INT] DEFAULT NULL)
+ INSERT INTO tricky ("NULL") VALUES (NULL)
+ SELECT NULL AS "VALUE",[null],"null",'NULL'as "String" FROM tricky;
+'@|select Name,value
+$BadResults=Compare-Object -Property Name, Value -IncludeEqual -ReferenceObject $correct -DifferenceObject $TestValues |
+    where {$_.sideIndicator -ne '=='}
+if ($BadResults.Count -ne 0) { write-warning "ooh. that third test wasn't right"}
 #-----end of sanity check
-
