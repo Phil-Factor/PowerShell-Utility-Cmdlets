@@ -13,9 +13,13 @@
 	.EXAMPLE
 		Distribute-LatestVersionOfFile '<MyPathTo>Github' 'DatabaseBuildAndMigrateTasks.ps1'
 		Distribute-LatestVersionOfFile '<MyPathTo>Github' 'preliminary.ps1'
+        $AllflywayProjects=@("s:\work\Github\PubsAndFlyway","<MyPathTo>FlywayTeamwork","<MyPathTo>FlywayDevelopments") 
 	    Distribute-LatestVersionOfFile @("<MyPathTo>Github","<MyPathTo>FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1'
-	    Distribute-LatestVersionOfFile @("s:\work\Github","s:\work\FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1' -verbose
-	    Distribute-LatestVersionOfFile @("s:\work\Github","s:\work\FlywayDevelopments") 'preliminary.ps1' -verbose
+	    Distribute-LatestVersionOfFile @("<MyPathTo>Github","<MyPathTo>FlywayDevelopments") 'DatabaseBuildAndMigrateTasks.ps1' -verbose
+	    Distribute-LatestVersionOfFile -BaseDirectories $AllflywayProjects 'afterMigrate__Add_Version_EP.sql' -verbose
+		Distribute-LatestVersionOfFile $AllflywayProjects 'preliminary.ps1' -verbose 
+        Distribute-LatestVersionOfFile '<MyPathTo>\Github\FlywayTeamwork\' 'preliminary.ps1' -verbose 
+
 	.NOTES
 		Additional information about the function.
 #>
@@ -47,4 +51,20 @@ function Distribute-LatestVersionOfFile
 		Copy-Item -path $canonicalVersion -destination $_ -force
 	}
 }
-
+        Distribute-LatestVersionOfFile 'S:\work\Git\GitStuff' 'afterMigrate__ApplyTableDescriptions.sql' -verbose 
+dir 'S:\work\Git\GitStuff\afterMigrate__ApplyTableDescriptions.sql' -Recurse
+	$SortedList = @() # the complete list of the locations of the file specified
+	$TheListOfDirectories=@()
+	$TheListOfDirectories = $BaseDirectories | foreach{ "$($_)\$Filename" }
+	#add the filename to each of the directories you specify
+	$canonicalVersion = dir $TheListOfDirectories -recurse -OutVariable +SortedList |
+	Sort-Object -Property lastWriteTime -Descending |
+	select-object -first 1 #we get one of the collection with the latest date
+	$VersionDate = $canonicalVersion.LastWriteTime #get the date of the file
+	#now update every file of the same name with an earlier date
+	$SortedList |
+	where { $_.LastWriteTime -lt $VersionDate } |
+	foreach{
+		Write-Verbose "Updating $($_.FullName) to the version in $($canonicalVersion.FullName)";
+		Copy-Item -path $canonicalVersion -destination $_ -force
+	}
