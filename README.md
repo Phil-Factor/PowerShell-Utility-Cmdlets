@@ -4,11 +4,11 @@ This is a repository for a collection of Cmdlets that I wrote only because I nee
 
 ## Compare-Resultsets
 
-Used to test databases. This function is used to test whether the JSON results from a SQL expression are the same as a correct result. It checks two objects that are converted into PowerShell from JSON resultsets that are the results from SQL Expressions. Each element in the array has the same keys.
+[Compare-resultsets](Compare-Resultsets/Compare-Resultsets.ps1)  is used to test databases. This function is used to test whether the JSON results from a SQL expression are the same as a correct result. It checks two objects that are converted into PowerShell from JSON resultsets that are the results from SQL Expressions. Each element in the array has the same keys.
 
 ## ConvertFrom-RegEx
 
-Use regex strings to  convert a string or a file from formatted tabular (each row with the same columns) text
+[ConvertFrom-RegEx](ConvertFrom-RegEx/ConvertFrom-RegEx.ps1) Uses regex strings to  convert a string or a file from formatted tabular (each row with the same columns) text
 
 ## ConvertFrom-XML
 
@@ -16,23 +16,23 @@ Use regex strings to  convert a string or a file from formatted tabular (each ro
 
 ## ConvertTo-lnsertStatements
 
-A quick way to create multi-row SQL insert statements from an array of objects that all  have the same keys in the same order for every row.  You'd get this from reading in a JSON result. You can specify a list of one or more columns to exclude, and can provide a SQL at the start and end. 
+[ConvertTo-lnsertStatements](ConvertTo-InsertStatements/ConvertTo-InsertStatements.ps1) is a quick way to create multi-row SQL insert statements from an array of objects that all  have the same keys in the same order for every row.  You'd get this from reading in a JSON result. You can specify a list of one or more columns to exclude, and can provide a SQL at the start and end. 
 
 ## ConvertTo-PSON
 
-This is a way of converting an object into a PowerShell script. PSON is short for PowerShell Object Notation. You give it an object as input and it returns the script as object notation. This is handy for exploring objects and it is strangely useful in debugging things. It has been curiously hard to write and I keep finding strange objects that it doesn’t do, and then  I have to fix the cmdlet.  It is a surprisingly good way of storing data in a file during dev work since you just execute the file as PowerShell to get the object. Just don’t use it publicly to read in data because it is a terrible security risk. 
+[ConvertTo-PSON](ConvertTo-PSON/ConvertTo-PSON.ps1) is a way of converting an object into a PowerShell script. PSON is short for PowerShell Object Notation. You give it an object as input and it returns the script as object notation. This is handy for exploring objects and it is strangely useful in debugging things. It has been curiously hard to write and I keep finding strange objects that it doesn’t do, and then  I have to fix the cmdlet.  It is a surprisingly good way of storing data in a file during dev work since you just execute the file as PowerShell to get the object. Just don’t use it publicly to read in data because it is a terrible security risk. 
 
 ## ConvertTo-View
 
-Converts a tabular object to a read-only view for SQL Server, PostgreSQL, MySQL,  MriaDB and SQLite. It ia a quick way to create the code for a view from an array of objects that all have the same keys in the same order for every row.  You'd get this from reading in a JSON result. You can specify a list of one or more columns to exclude
+[ConvertTo-View](ConvertTo-View/ConvertTo-View.ps1) converts a tabular object to a read-only view for SQL Server, PostgreSQL, MySQL,  MriaDB and SQLite. It ia a quick way to create the code for a view from an array of objects that all have the same keys in the same order for every row.  You'd get this from reading in a JSON result. You can specify a list of one or more columns to exclude
 
 ## ConvertTo-YAML
 
-This is an experiment, using the principles of Display-object, to convert any PowerShell object to a YAML document. I’m still fishing a few bugs out but the current version is usable as long as you don’t do anything outlandish. Oddly, it gets shorter the more I fix problems.
+[ConvertTo-YAML](ConvertTo-YAML/ConvertTo-YAML.ps1) is an experiment, using the principles of Display-object, to convert any PowerShell object to a YAML document. I’m still fishing a few bugs out but the current version is usable as long as you don’t do anything outlandish. Oddly, it gets shorter the more I fix problems.
 
 ## Create-PUMLEntityDiagram
 
-Creates an ER diagram from a database model. You just name the table(s) that need to be included, the model and the verbiage on the diagram.
+[Create-PUMLEntityDiagram](Create-PUMLEntityDiagram/Create-PUMLEntityDiagram.ps1) creates an ER diagram from a database model. You just name the table(s) that need to be included, the model and the verbiage on the diagram.
 
 ## Diff-Objects
 
@@ -48,23 +48,23 @@ For the BaseDirectory parameter, you should provide one or more  base directorie
 
 ## ExtractCredential
 
-see  **Get-WindowsCredential**
+for explanation about  [ExtractCredential](Get-WindowsCredential/ExtractCredential.ps1) see  **Get-WindowsCredential**
 
 ## Generate-NormallyDistributed
 
-Generates a normally-distributed random number using  the Box-Muller transform
+[Generate-NormallyDistributed](GenerateRandomText/Generate-NormallyDistributed.ps1) Generates a normally-distributed random number using  the Box-Muller transform
 
 ## GenerateRandomText
 
-This function takes a PowerShell object that has several keys representing phrase-banks,each  of which has an array that describes all the alternative components of a string and from it,  it returns a string.    basically, you give it a list of alternatives in an array and it selects one of them.  However, if you put in the name of an array as one of the alternatives,rather than     a word,it will, if it selects it, treat it as a new reference and will select one of   these alternatives.
+[GenerateRandomText](GenerateRandomText/GenerateRandomText.ps1)   takes a PowerShell object that has several keys representing phrase-banks,each  of which has an array that describes all the alternative components of a string and from it,  it returns a string.    basically, you give it a list of alternatives in an array and it selects one of them.  However, if you put in the name of an array as one of the alternatives,rather than     a word,it will, if it selects it, treat it as a new reference and will select one of   these alternatives.
 
 ## Get-DPEConfigItems
 
-Returns an encrypted config file as a Hashtable that can then be splatted to Flyway. This is used to allow you to decrypt flyway configuration items 'on the fly in a form that can be passed to Flyway via splatting
+[Get-DPEConfigItems](Get-DPEConfig/Get-DPEConfigItems.ps1) Returns an encrypted config file as a Hashtable that can then be splatted to Flyway. This is used to allow you to decrypt flyway configuration items 'on the fly in a form that can be passed to Flyway via splatting
 
 ## Get-FilesFromRepo
 
-Get a github repository and download it to a local directory/folder. This is a PowerShell cmdlet that allows you to download a  repository or just a directory from a repository. 
+[Get-FilesFromRepo](Get-FilesFromRepo/Get-FilesFromRepo.ps1) gets  a github repository and download it to a local directory/folder. This is a PowerShell cmdlet that allows you to download a  repository or just a directory from a repository. 
 e.g.
 
 ```
@@ -79,19 +79,19 @@ e.g.
 
 ## Get-GithubModifiedFiles
 
-Returns the list of  current files modified but uncommitted to a repository
+[Get-GithubModifiedFiles](Get-GithubModifiedFiles/Get-GithubModifiedFiles.ps1) Returns the list of  current files modified but uncommitted to a repository
 
 ## Get-TaggedGitHubRelease
 
-Gets the files of a git release, either the latest one or, if you specify the tag, the release that has that tag. This is a, hopefully, reliable way of getting the latest release from Github, or a specific release. There are several examples on the internet but I couldn't get any to work. Git changes the protocol, but if you can get the correct path of the zip-ball of the files, you have a better chance.
+[Get-TaggedGitHubRelease](Get-TaggedGitHubRelease/Get-TaggedGithubRelease.ps1) gets the files of a git release, either the latest one or, if you specify the tag, the release that has that tag. This is a, hopefully, reliable way of getting the latest release from Github, or a specific release. There are several examples on the internet but I couldn't get any to work. Git changes the protocol, but if you can get the correct path of the zip-ball of the files, you have a better chance.
 
 ## Get-WindowsCredential
 
-Gets a windows credential from the credential manager, or creates a credential if it doesn't yet exist. There is also a version of this called **ExtractCredential** that isn’t a cmdlet but is executed as a file. socan be used in the command line 
+[Get-WindowsCredential](Get-WindowsCredential/Get-WindowsCredential.ps1) gets a windows credential from the credential manager, or creates a credential if it doesn't yet exist. There is also a version of this called **[ExtractCredential](Get-WindowsCredential/ExtractCredential.ps1)** that isn’t a cmdlet but is executed as a file. so can be used in the command line 
 
 ## Get-ODBCMetadata
 
-Gets the metadata of any ODBC connection (any database with a good driver. So far, only tested with SQL Server, Postgres, sqlite  and MariaDB. All were very different
+[Get-ODBCMetadata](ODBCMetadata/Get-ODBCSourceMetadata.ps1) gets the metadata of any ODBC connection (any database with a good driver. So far, only tested with SQL Server, Postgres, sqlite  and MariaDB. All were very different
 This uses two techniques. Where the ODBC driver has a GetSchema function
 in its connection object, it uses that. Where it can't, it uses the Information_schema. 
 SQL Server, Azure SQL Database, MySQL, PostgreSQL, MariaDB, Amazon Redshift,
@@ -110,16 +110,16 @@ $connpsql = new-object system.data.odbc.odbcconnection
 
 ## Read-DPEncryptedContent
 
-This PowerShell routine will fetch the contents of a file containing an encrypted object stored in an XML Document. You can ceate this with **Write-DPEncryptedContent**. This is encrypted as a system.secure.string. It converts it back into plain text
+[Read-DPEncryptedContent](DPEncryptedContent/Read-DPEncryptedContent.ps1) is a PowerShell routine will fetch the contents of a file containing an encrypted object stored in an XML Document. You can ceate this with **Write-DPEncryptedContent**. This is encrypted as a system.secure.string. It converts it back into plain text
 
 ## Tokenize-SQLString
 
-Takes a SQL string and produces a stream of its component parts such as comments, strings numbers, identifiers and so on. This allows intelligent searched of SQL Files for things like comments
+[Tokenize-SQLString](Tokenize-SQLString/Tokenize-SQLString.ps1) takes a SQL string and produces a stream of its component parts such as comments, strings numbers, identifiers and so on. This allows intelligent searched of SQL Files for things like comments
 
 ## Write-DocumentationToSQLDDLFile
 
-Takes a JSON file with documentation details and inserts it into the files specified. This takes a whole bunch of files and updates them with the documentation that you request. This is intended for automatically-generated SQL Build scrips and also migration files 
+[Write-DocumentationToSQLDDLFile](Write-DocumentationToSQLDDLFile/Write-DocumentationToSQLDDLFile.ps1) takes a JSON file with documentation details and inserts it into the files specified. This takes a whole bunch of files and updates them with the documentation that you request. This is intended for automatically-generated SQL Build scrips and also migration files 
 
 ## Write-DPEncryptedContent
 
-This PowerShell routine will save the string in its encrypted form as a system.secure.string within an XML file. It can be read by **Read-DPEncryptedContent**
+[Write-DPEncryptedContent](DPEncryptedContent/Write-DPEncryptedContent.ps1) will save the string in its encrypted form as a system.secure.string within an XML file. It can be read by **[Read-DPEncryptedContent\(DPEncryptedContent/Read-DPEncryptedContent.ps1)**
