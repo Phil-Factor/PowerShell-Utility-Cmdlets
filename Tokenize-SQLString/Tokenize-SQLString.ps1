@@ -16,7 +16,7 @@
 	
 	.EXAMPLE
 		PS C:\> Tokenize_SQLString -SQLString 'Value1'
-	
+	Tokenize_SQLString -SQLString$SecondSample
 	.NOTES
 		Additional information about the function.
 #>
@@ -107,7 +107,7 @@ function Tokenize_SQLString
 		$Token = $_;
 		$ItsAnIdentifier = ($Token.name -in ('SquareBracketed', 'Quoted', 'identifier'));
 		if ($ItsAnIdentifier)
-		{
+		{#strip delimiters out
             $TheString=switch ($Token.name )
             {
             'SquareBracketed' { $Token.Value.TrimStart('[').TrimEnd(']') }
@@ -115,8 +115,8 @@ function Tokenize_SQLString
             default {$Token.Value}
             }
             $Token.Type = $Token.Name; 
-			if ($TheString -in $ReservedSQLWords)
-			{ $Token.Name='Keyword'  }
+			if ($TheString -in $ReservedSQLWords) #
+			{ $Token.Name='Keyword';  $ItsAnIdentifier=$false }
 			else
 			{ $Token.Name = 'Reference' }
             
@@ -182,7 +182,7 @@ function Tokenize_SQLString
 
 
 #-----sanity checks
-$Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id GO"
+$Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id ;"
 $values = @'
 CREATE VIEW [dbo].[titleview] /* this is a test view */
 AS --with comments
@@ -190,12 +190,13 @@ select 'Report', title, au_ord, au_lname, price, ytd_sales, pub_id
 from authors, titles, titleauthor
 where authors.au_id = titleauthor.au_id
    AND titles.title_id = titleauthor.title_id
-
-GO
+;
 '@ | Tokenize_SQLString | Select -ExpandProperty Value
 $resultingString=($values -join ' ')
 if ($resultingString -ne $correct)
 { write-warning "ooh. that first test wasn't right"}
+
+
 
 $result=@'
 /* we no longer access NotMyServer.NotMyDatabase.NotMySchema.NotMyTable */
