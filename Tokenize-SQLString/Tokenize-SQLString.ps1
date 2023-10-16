@@ -35,7 +35,8 @@ function Tokenize_SQLString
 	if ($parserRegex -eq $null)
 	{
 		$parserRegex = [regex]@'
-(?i)(?s)(?<BlockComment>/\*.*?\*/)|(?#
+(?i)(?s)(?<JavaDoc>/\*\*.*?\*\*/)|(?#
+)(?<BlockComment>/\*.*?\*/)|(?#
 )(?<EndOfLineComment>--[^\n\r]*)|(?#
 )(?<String>N?'.*?')|(?#
 )(?<number>[+\-]?\d+\.?\d{0,100}[+\-0-9E]{0,6})|(?#
@@ -60,7 +61,7 @@ function Tokenize_SQLString
 		'CURRENT_USER', 'CURSOR', 'CYCLE', 'DATA', 'DATALINK', 'DATE', 'DAY', 'DEALLOCATE',
 		'DEC', 'DECIMAL', 'DECLARE', 'DEFAULT', 'DEFERRABLE', 'DELETE', 'DEPTH', 'DEREF', 'DESC',
 		'DESCRIPTOR', 'DESTRUCTOR', 'DIAGNOSTICS', 'DICTIONARY', 'DISCONNECT', 'DO', 'DOMAIN', 'DOUBLE',
-		'DROP', 'ELEMENT', 'END-EXEC', 'EQUALS', 'ESCAPE', 'EXCEPT', 'EXCEPTION', 'EXECUTE',
+		'DROP', 'ELEMENT', 'END', 'END-EXEC', 'EQUALS', 'ESCAPE', 'EXCEPT', 'EXCEPTION', 'EXECUTE',
 		'EXIT', 'EXPAND', 'EXPANDING', 'FALSE', 'FIRST', 'FLOAT', 'FOR', 'FOREIGN', 'FREE',
 		'FROM', 'FUNCTION', 'FUSION', 'GENERAL', 'GET', 'GLOBAL', 'GO', 'GOTO', 'GROUP', 'GROUPING',
 		'HANDLER', 'HASH', 'HOUR', 'IDENTITY', 'IF', 'IGNORE', 'IMMEDIATE', 'IN', 'INDICATOR',
@@ -91,23 +92,24 @@ function Tokenize_SQLString
 	# we start by breaking the string up into a pipeline of objects according to the
     # type of string. First get the match objects
 	$allmatches = $parserRegex.Matches($SQLString)
-    # we also break the script up into lines
+    # we also break the script up into lines so we can say where each token is 
 	$Lines = $Lineregex.Matches($SQLString); #get the offset where lines start
 	# we put each token through a pipeline to attach the line and column for 
     # each token 
     $allmatches | foreach  {
 		$_.Groups | where { $_.success -eq $true -and $_.name -ne 0 }
-	} | # now e convert each object with the columns we 
+	} | # now we convert each object with the columns we later calculate 
 	Select name, index, length, value,
 		   @{ n = "Type"; e = { '' } }, @{ n = "line"; e = { 0 } },
 		   @{ n = "column"; e = { 0 } } | foreach -Begin {
-		$state = 'not'; $held = @(); $FirstIndex = $null; $Theline = 1
+		$state = 'not'; $held = @(); $FirstIndex = $null; $Theline = 1; $token=$null;
 	}{
-		#get the location and value
-		$Token = $_;
+		#get the value, save the previous value, and try to identify the nature of the token
+		$PreviousToken=$Token;
+        $Token = $_;
 		$ItsAnIdentifier = ($Token.name -in ('SquareBracketed', 'Quoted', 'identifier'));
 		if ($ItsAnIdentifier)
-		{#strip delimiters out
+		{#strip delimiters out to get the value inside
             $TheString=switch ($Token.name )
             {
             'SquareBracketed' { $Token.Value.TrimStart('[').TrimEnd(']') }
@@ -115,12 +117,16 @@ function Tokenize_SQLString
             default {$Token.Value}
             }
             $Token.Type = $Token.Name; 
+            # Catch local identifiers in some RDBMSs with leading '@'
+            if ($Token.Type -eq 'identifier' -and $Token.Value -like '@*')
+                {$Token.Type='LocalIdentifier'}    
+            # distinguish krywords from references.    
 			if ($TheString -in $ReservedSQLWords) #
 			{ $Token.Name='Keyword';  $ItsAnIdentifier=$false }
 			else
 			{ $Token.Name = 'Reference' }
             
-		}
+		} #Now we calculate the location
 		$TheIndex = $Token.Index;
 		While ($lines.count -gt $TheLine -and #do we bump the line number
 			$lines[$TheLine - 1].Index -lt $TheIndex)
@@ -131,15 +137,22 @@ function Tokenize_SQLString
 			({ $PSItem -le 2 }) { 0 }
 			Default { $lines[$TheLine - 2].Index }
 		}
-		$TheColumn = $TheIndex - $TheStart;
+		$TheColumn = $TheIndex - $TheStart; 
+        #index of where we found the token - index of start of line
+        #now we record the location
 		$Token.'Line' = $TheLine; $Token.'Column' = $TheColumn;
+        # we now need to extract the multi-part identifiers, and determine 
+        # what is just a local identifier.
 		$ItsADot = ($_.name -eq 'Punctuation' -and $_.value -eq '.')
-        #write-verbose " state '$state' '$($token.value)'  $ItsADot $ItsAnIdentifier " 
+        $ItsAnAS = ($_.name -eq 'Keyword' -and $_.value -eq 'AS')
+        Write-Verbose "Itsanas=$ItsAnAS itsanidentifier=$ItsAnIdentifier state-$State type=$($token.type) name=$($token.Name) value=$($token.Value) previousTokenValue=$($previousToken.Value) CTE=$cte"       
 		switch ($state)
 		{
 			'not' {
-				if ($ItsAnIdentifier)
+				if ($ItsAnIdentifier -and $token.type -ne 'localIdentifier')
+                # local identifiers cannot be multi-part identifiers
 				{ $Held += $token; $FirstIndex = $token.index; 
+                  $CTE=($previousToken.Value -in ('WITH',','));
                   $FirstLine = $TheLine; $FirstColumn = $TheColumn; $state = 'first'; }
 				else { write-output $token }
 				break
@@ -149,6 +162,9 @@ function Tokenize_SQLString
 				if ($ItsADot) { $state = 'another'; }
 				elseif ($ItsAnIdentifier) 
                     {write-output $held; $held = @(); $Held += $token }
+                elseif ($ItsAnAS -and $CTE)
+                    {$state = 'not'; $held[0].type='localIdentifier';
+                     write-output $held; write-output $token; $held = @(); }
                 else
                     { write-output $held; write-output $token; $held = @(); $state = 'not' }
 				; break
@@ -176,10 +192,21 @@ function Tokenize_SQLString
 			
 		} # end switch	
 		
-	}
+	} -End{if ($state -ne 'not') 
+        {
+        $held | foreach -begin { $length = 0; $ref = "" } {
+						$ref = "$ref.$($_.value.trim())"; $length += $_.length;
+					}
+					$ref = $ref.trim('.')
+					[psCustomObject]@{
+						'Name' = 'identifier'; 'index' = $FirstIndex; 'Length' = $length;
+						'Value' = $ref; 'Type' = "$($Held.Count)-Part Dotted Reference";
+						'Line' = $FirstLine; 'Column' = $FirstColumn
+					}
+					#Write-output $token
+        }
+        }
 }
-
-
 
 #-----sanity checks
 $Correct="CREATE VIEW [dbo].[titleview] /* this is a test view */ AS --with comments select 'Report' , title , au_ord , au_lname , price , ytd_sales , pub_id from authors , titles , titleauthor where authors.au_id = titleauthor.au_id AND titles.title_id = titleauthor.title_id ;"
@@ -195,7 +222,6 @@ where authors.au_id = titleauthor.au_id
 $resultingString=($values -join ' ')
 if ($resultingString -ne $correct)
 { write-warning "ooh. that first test wasn't right"}
-
 
 
 $result=@'
@@ -246,4 +272,57 @@ $TestValues= Tokenize_SQLString @'
 $BadResults=Compare-Object -Property Name, Value -IncludeEqual -ReferenceObject $correct -DifferenceObject $TestValues |
     where {$_.sideIndicator -ne '=='}
 if ($BadResults.Count -ne 0) { write-warning "ooh. that third test wasn't right"}
+$result=@'
+CREATE OR ALTER FUNCTION dbo.PublishersEmployees
+(
+    @company varchar(30) --the name of the publishing company or '_' for all.
+)
+RETURNS TABLE AS RETURN
+(
+SELECT fname
+       + CASE WHEN minit = '' THEN ' ' ELSE COALESCE (' ' + minit + ' ', ' ') END
+       + lname AS NAME, job_desc, pub_name, person.person_id
+  FROM
+  employee
+    INNER JOIN jobs
+      ON jobs.job_id = employee.job_id
+    INNER JOIN dbo.publishers
+      ON publishers.pub_id = employee.pub_id
+	INNER JOIN people.person
+	ON person.LegacyIdentifier='em-'+employee.emp_id
+	WHERE pub_name LIKE '%'+@company+'%'
+)
+'@ |Tokenize_SQLString |Where {$_.Type -eq 'LocalIdentifier'}|select  -ExpandProperty value|sort -Unique
+if ($result -ne '@company')  { write-warning "ooh. that fourth test checking for '@' variables wasn't right"}
+
+
+$Result=@'
+WITH top_authors
+AS (SELECT au.au_id as au, au.au_fname, au.au_lname,
+                 SUM (sale.qty) AS total_sales
+      FROM
+      dbo.authors as au
+        JOIN dbo.titleauthor ta
+          ON au.au_id = ta.au_id
+        JOIN dbo.sales sale
+          ON ta.title_id = sale.title_id
+      GROUP BY
+      au.au_id, au.au_fname, au.au_lname
+      ORDER BY total_sales DESC limit 5), avg_sales
+AS (SELECT title_id, AVG (qty) AS avg_qty FROM dbo.sales GROUP BY title_id)
+  SELECT ta.au_id, ta.au_fname, ta.au_lname, t.title_id, t.title, t.price,
+         s.avg_qty
+    FROM
+    top_authors as ta
+      JOIN dbo.titleauthor ta2
+        ON ta.au_id = ta2.au_id
+      JOIN dbo.titles t
+        ON ta2.title_id = t.title_id
+      JOIN avg_sales s
+        ON t.title_id = s.title_id;
+'@  |Tokenize_SQLString  |Where {$_.Type -eq 'LocalIdentifier'}|select  -ExpandProperty value|sort -Unique
+if ($result[0] -ne 'avg_sales' -or $result[1] -ne 'top_authors' )
+      { write-warning "ooh. that fifth test about the WITH wasn't right"}
+
+# cls
 #-----end of sanity check
