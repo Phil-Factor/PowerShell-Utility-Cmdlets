@@ -36,77 +36,85 @@ function ConvertTo-YAML
 		[int]$ParentIsArray = $false #is this being called from an array?
 	)
 	$Formatting = {
-		# effectively a local function
-		Param (
-			$TheKey,
-			# the key of the key/value pair
+	# effectively a local function
+	Param (
+		$TheKey,
+		# the key of the key/value pair
 
-			$TheChild,
-			# the value of the key/value pair
+		$TheChild,
+		# the value of the key/value pair
 
-			$ThePrefix = ' ',
-			# the prefix for the value : or -
+		$ThePrefix = ' ',
+		# the prefix for the value : or -
 
-			$ThePadding = ''
-			
-		)
-		write-Verbose "padding='$ThePadding' depth='$currentdepth', TheKey='$TheKey', TheChild='$TheChild', ThePrefix='$ThePrefix' "
-		if ($TheKey -imatch '[\t\r\n\b\f\v]') #If the key contains json escapes...
-        #"a!\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~"
-		{ $TheKey = ($TheKey | ConvertTo-json) }; #just so escape it
-		$KeyDeclaration = "$ThePadding$($TheKey)$($Theprefix) ";
-		if ($Thechild -eq $null)
-		{
-			Write-Verbose "it was a null!"; $TheValue = 'null'
-		}
-		elseif ($Thechild -match '[\r\n]' -or $TheChild.Length -gt 80)
-		{
-			# right, we have to format it to YAML spec.
-			$Indent = 0
-			$ItHasLongLines = $False; #until proved otherwise
-			$TheValue = ''
-			#split the text up
-			$TheChild -split '[\n|\r]{1,2}' | ForEach-Object {
-				$length = $_.Length;
-				$IndexIntoString = 0;
-				$wrap = 80;
-				while ($length -gt $IndexIntoString + $Wrap)
-				{
-					$BreakPoint = $wrap
-					$ItHasLongLines = $true;
-					$earliest = $_.Substring($IndexIntoString, $wrap).LastIndexOf(' ')
-					$latest = $_.Substring($IndexIntoString + $wrap).IndexOf(' ')
-					if ($earliest -eq -1) #no line breaks so nothing to do
-					{ $BreakPoint = $wrap }
-					elseif ($latest -eq -1)
-					{ $Breakpoint = $earliest }
-					elseif ($wrap - $earliest -lt ($latest))
-					{ $BreakPoint = $wrap }
-					else
-					{ $BreakPoint = $wrap + $latest }
-					#now we 
-					$TheValue += $padding + '  ' + $_.Substring($IndexIntoString, $BreakPoint).Trim() + "`r`n";
-					$IndexIntoString += $BreakPoint
-				}
-				
-				if ($IndexIntoString -lt $length)
-				{
-					$TheValue += $padding + '  ' + $_.Substring($IndexIntoString).Trim() + "`r`n"
-				}
-				else
-				{
-					$TheValue += "`r`n"
-				}
-			}
-			if ($ItHasLongLines)
-			{ $TheValue = "> `r`n" + $TheValue }
-			else { $TheValue = "| `r`n" + $TheValue -replace '\r\n\r\n', "`r`n" }
-		}
-		elseif ($Thechild -imatch '[\t\r\n\b\f\v\''\"\\]') { $TheValue = $Thechild | ConvertTo-json }
-		else { $TheValue = "$Thechild" } # just let powershell format it
-		write-verbose "outputting '$KeyDeclaration' and '$TheValue'"
-		"$($KeyDeclaration)$($TheValue)"
+		$ThePadding = ''
+		
+	)
+	write-Verbose "padding='$ThePadding' depth='$currentdepth', TheKey='$TheKey', TheChild='$TheChild', ThePrefix='$ThePrefix' "
+	if ($TheKey -imatch '[\t\r\n\b\f\v]') #If the key contains json escapes...
+	# "a!\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~"
+	{ $TheKey = ($TheKey | ConvertTo-json) }; #just so escape it
+	$KeyDeclaration = "$ThePadding$($TheKey)$($Theprefix) ";
+	# was it a null?
+	if ($Thechild -eq $null)
+	{
+		Write-Verbose "it was a null!"; $TheValue = 'null'
 	}
+	# is it more than a simple one-line string?
+	elseif ($Thechild -match '[\r\n]')
+	{
+		$TheValue = $TheChild -split '[\n|\r]{1,2}' | ForEach-Object -Begin {
+			"| `r`n"
+		} {
+			"$padding  $_`r`n"
+		}
+	}
+	#is it a long one-liner?
+	elseif ($TheChild.Length -gt 120)
+	{
+		# it isn't a short string variable 
+		# right, we have to format it to YAML spec.
+		$Indent = 0
+		#split the text up
+		$TheValue=$TheChild -split '[\n|\r]{1,2}' | ForEach-Object -begin {
+			"> `r`n"
+		} {
+			$length = $_.Length;
+			$IndexIntoString = 0;
+			$wrap = 80;
+			while ($length -gt $IndexIntoString + $Wrap)
+			{
+				$BreakPoint = $wrap
+				$ItHasLongLines = $true;
+				$earliest = $_.Substring($IndexIntoString, $wrap).LastIndexOf(' ')
+				$latest = $_.Substring($IndexIntoString + $wrap).IndexOf(' ')
+				if ($earliest -eq -1) #no line breaks so nothing to do
+				{ $BreakPoint = $wrap }
+				elseif ($latest -eq -1)
+				{ $Breakpoint = $earliest }
+				elseif ($wrap - $earliest -lt ($latest))
+				{ $BreakPoint = $wrap }
+				else
+				{ $BreakPoint = $wrap + $latest }
+				#now we put out each line
+				"$padding  $($_.Substring($IndexIntoString, $BreakPoint))`r`n";
+				$IndexIntoString += $BreakPoint
+			}
+			if ($IndexIntoString -lt $length)#and the last line
+			{
+				"$padding  ($_.Substring($IndexIntoString).Trim())`r`n"
+			}
+			else
+			{
+				"$TheChild`r`n"
+			}
+		}
+	} # end of dealing with long strings
+	elseif ($Thechild -imatch '[\t\r\n\b\f\v\''\"\\]') { $TheValue = $Thechild | ConvertTo-json }
+	else { $TheValue = "$Thechild" } # just let powershell format it
+	write-verbose "outputting '$KeyDeclaration' and '$TheValue'"
+	"$KeyDeclaration$TheValue"
+}
 	
 	$Padding = '                      '.Substring(1, ($currentdepth * 2))
 	$PaddingMaybeIndicator =

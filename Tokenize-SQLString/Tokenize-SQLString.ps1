@@ -35,7 +35,7 @@ function Tokenize_SQLString
 	if ($parserRegex -eq $null)
 	{
 		$parserRegex = [regex]@'
-(?i)(?s)(?<JavaDoc>/\*\*.*?\*\*/)|(?#
+(?i)(?s)(?<JavaDoc>/\*\*.*?\*/)|(?#
 )(?<BlockComment>/\*.*?\*/)|(?#
 )(?<EndOfLineComment>--[^\n\r]*)|(?#
 )(?<String>N?'.*?')|(?#
@@ -145,7 +145,7 @@ function Tokenize_SQLString
         # what is just a local identifier.
 		$ItsADot = ($_.name -eq 'Punctuation' -and $_.value -eq '.')
         $ItsAnAS = ($_.name -eq 'Keyword' -and $_.value -eq 'AS')
-        Write-Verbose "Itsanas=$ItsAnAS itsanidentifier=$ItsAnIdentifier state-$State type=$($token.type) name=$($token.Name) value=$($token.Value) previousTokenValue=$($previousToken.Value) CTE=$cte"       
+        #Write-Verbose "Itsanas=$ItsAnAS itsanidentifier=$ItsAnIdentifier state-$State type=$($token.type) name=$($token.Name) value=$($token.Value) previousTokenValue=$($previousToken.Value) CTE=$cte"       
 		switch ($state)
 		{
 			'not' {
@@ -221,7 +221,7 @@ where authors.au_id = titleauthor.au_id
 '@ | Tokenize_SQLString | Select -ExpandProperty Value
 $resultingString=($values -join ' ')
 if ($resultingString -ne $correct)
-{ write-warning "ooh. that first test wasn't right"}
+{ write-warning "ooh. that first test to check the values in the output stream wasn't right"}
 
 
 $result=@'
