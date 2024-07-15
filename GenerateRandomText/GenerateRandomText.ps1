@@ -114,6 +114,11 @@ $HumanitiesTheses=@'
 "interpretive","critical","probablistic","aphoristically constructed","disconnected",
 "subtle","ingenious","deep","shrewd","astute","sophistical"
 ],
+"excellent":[
+"powerful","enlightening","courageous","indispensible","lucid","engaging","brave", "elegant",
+"powerful","myth-busting","revelatory","compelling","important","vital","profound","essential",
+"electrifying"
+],
 "doesSomethingWith":[
 "evokes","explores","describes","summarises","deliniates","traces","relates","characterises",
 "depicts","focuses on","narrates","educes","draws inspiration from",
