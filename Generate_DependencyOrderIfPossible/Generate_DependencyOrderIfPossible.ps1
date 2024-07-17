@@ -32,8 +32,6 @@
     .EXAMPLE
 
     Generate_DependencyOrderIfPossible  PubsDSN 'PubsWithACircularRelationship' '*' 'sa' 'AhaThatsNotMyPassword'
-
-
 	
 #>
 function Generate_DependencyOrderIfPossible
@@ -72,7 +70,7 @@ function Generate_DependencyOrderIfPossible
 	if ($DefaultServer -eq $Null) { $DefaultServer = $DSN.Attribute.Servername }
 <# Now what RDBMS is being requested? Examine the driver name (Might need alteration)
    if the driver name is different or if you use a different RDBMS #>
-	$RDBMS = 'SQLserver', 'SQL Server', 'MySQL', 'MariaDB', 'PostgreSQL' | foreach{
+	$RDBMS = 'SQLserver', 'SQL Server', 'MySQL', 'MariaDB', 'PostgreSQL','Oracle' | foreach{
 		$Drivername = $DSN.DriverName;
 		if ($Drivername -like "*$_*") { $_ }
 	}
@@ -151,9 +149,9 @@ $WhereClause  AND TABLE_TYPE = 'BASE TABLE';
     elseif ($RDBMS -ieq ('oracle'))
 	{
     $DependencyCommand = New-object System.Data.Odbc.OdbcCommand(@"
-    SELECT 
-    concat(concat(uc.owner, '.'), uc.table_name) AS The_Table, 
-    Concat(concat(c.owner, '.'), c.table_name) AS Referenced_by
+SELECT 
+    Nullif (concat(concat(uc.owner, '.'), uc.table_name),'.') AS The_Table, 
+    Nullif (Concat(concat(c.owner, '.'), c.table_name),'.')  AS Referenced_by
     FROM 
         all_tables t
     LEFT OUTER JOIN
@@ -189,11 +187,11 @@ $WhereClause  AND TABLE_TYPE = 'BASE TABLE';
             a.constraint_type = 'R'
     ) uc ON t.owner = uc.ref_owner AND t.table_name = uc.ref_table_name
     WHERE 
-        t.owner IN ('$(($Schemas -split ',') -join "','") 
+          t.owner IN ('$(($Schemas -split ',') -join "','")')  
         AND t.iot_type IS NULL
+        AND uc.table_name is not null
     ORDER BY 
         t.owner, t.table_name;
-   
 
 "@, $conn);
     }
@@ -202,59 +200,71 @@ $WhereClause  AND TABLE_TYPE = 'BASE TABLE';
 	
 <# now get the relationship data #>
 	$DependencyData = New-Object system.Data.DataSet;
-	(New-Object system.Data.odbc.odbcDataAdapter($DependencyCommand)).fill($DependencyData) | out-null;
+    # Write-verbose $DependencyCommand.CommandText
+    (New-Object system.Data.odbc.odbcDataAdapter($DependencyCommand)).fill($DependencyData) | out-null;
 	$TheListOfDependencies = $DependencyData.Tables[0] |
 	   Select @{ n = "Table"; e = { $_.item(0) } }, @{ n = "Referrer"; e = { $_.item(1) } }
-	$TheOrderOfDependency = @() # our manifest table
-    <# Now create the manifest table #>
-	$TheRemainingTables = $TheListOfDependencies | select Table -unique # Get the list of tables
-	$TableCount = $TheRemainingTables.count # Get the number so we know when they are all listed
-	$DependencyLevel = 1 #start at 1 - meaning they make no foreign references
-	while ($TheOrderOfDependency.count -lt $TableCount -and $DependencyLevel -lt 30)
-	{
-		$TheRemainingTables = $TheRemainingTables |
-		   where { $_.Table -notin $TheOrderOfDependency.Table }
-		#select tables that are not making references to surviving objects 
-		$TheRemainingForeignReferences = $TheListOfDependencies |
-		    where { $_.Table -notin $TheOrderOfDependency.Table } |
-		    Select -ExpandProperty Referrer -unique | where { !([string]::IsNullOrEmpty($_)) }
-		$TheOrderOfDependency += $TheRemainingTables | where { $_.Table -notin $TheRemainingForeignReferences } |
-		    Select Table, @{ n = "Sequence"; e = { $DependencyLevel } }
-		$DependencyLevel++
-	}
-	if ($DependencyLevel -ge 30)
-	{
-		Write-Warning "Unable to create the Dependency List of tables for the manifest due to a circular dependency"
-		$Referrers = @();
-		$ii = 30; #this will only be called after a circular dependency is found
-		$TableList = $TheListOfDependencies |
-		   where { [string]::IsNullOrEmpty($_.Referrer) } | select -ExpandProperty Table
-		#initialise the dependency walker
-		$CurrentGeneration = $TheListOfDependencies | where { $_.Referrer -in $TableList }
-		#now walk all the dependencies
-		While ($ii -ge 0)
-		{
-			$Referrers += $CurrentGeneration | foreach {
-				if ($_.referrer -notin $Referrers) { $_.referrer } }
-			if ($CurrentGeneration.Count -le 0) { break }
-			$Referrers | foreach{
-				if ($_ -in $CurrentGeneration.Table)
-				{
-					$Ref = $_; $TheReferrer = $CurrentGeneration | where {
-						$_.Table -eq $Ref
-					} | foreach{ $_.Referrer }; write-Warning "circular reference involving $TheReferrer -> $($_)"
-					break;
-				}
-			}
-			$CurrentGeneration = $TheListOfDependencies | where { $_.Referrer -in $CurrentGeneration.Table }
-			$ii-- #iterator to prevent an endless loop
-		}
-		
-		
-	}
+    $TheListOfDependencies| foreach -Begin{$SelfReference=$false; $SelfReferencingTables=@()}{
+         if ($_.Table -eq $_.Referrer)
+                {$SelfReference=$true;$SelfReferencingTables+=$_.Table  } 
+         }
+    if ($SelfReference) {
+        Write-Warning "Unable to create the Dependency List of tables for the manifest due to a self-reference in $($SelfReferencingTables -join ',')"
+        }     
 	else
-	{ $TheOrderOfDependency }
-}
+        {
+        $TheOrderOfDependency = @() # our manifest table
+        <# Now create the manifest table #>
+	    $TheRemainingTables = $TheListOfDependencies | select Table -unique # Get the list of tables
+	    $TableCount = $TheRemainingTables.count # Get the number so we know when they are all listed
+	    $DependencyLevel = 1 #start at 1 - meaning they make no foreign references
+        write-verbose " found $TableCount tables $(($TheRemainingTables| foreach{$_.Table})  -join ','))"
+	    while ($TheOrderOfDependency.count -lt $TableCount -and $DependencyLevel -lt 30)
+	    {
+		    $TheRemainingTables = $TheRemainingTables |
+		       where { $_.Table -notin $TheOrderOfDependency.Table }
+		    #select tables that are not making references to surviving objects 
+		    $TheRemainingForeignReferences = $TheListOfDependencies |
+		        where { $_.Table -notin $TheOrderOfDependency.Table } |
+		        Select -ExpandProperty Referrer -unique | where { !([string]::IsNullOrEmpty($_)) }
+		    $TheOrderOfDependency += $TheRemainingTables | where { $_.Table -notin $TheRemainingForeignReferences } |
+		        Select Table, @{ n = "Sequence"; e = { $DependencyLevel } }
+		    $DependencyLevel++
+	    }
+        if ($DependencyLevel -ge 30)
+	    {
+		    Write-Warning "Unable to create the Dependency List of tables for the manifest due to a circular dependency"
+            $Referrers = @();
+		    $ii = 30; #this will only be called after a circular dependency is found
+		    $TableList = $TheListOfDependencies |
+		       where { [string]::IsNullOrEmpty($_.Referrer) } | select -ExpandProperty Table
+		    #initialise the dependency walker
+		    $CurrentGeneration = $TheListOfDependencies | where { $_.Referrer -in $TableList }
+		    #now walk all the dependencies
+		    While ($ii -ge 0)
+		    {
+			    $Referrers += $CurrentGeneration | foreach {
+				    if ($_.referrer -notin $Referrers) { $_.referrer } }
+			    if ($CurrentGeneration.Count -le 0) { break }
+			    $Referrers | foreach{
+				    if ($_ -in $CurrentGeneration.Table)
+				    {
+					    $Ref = $_; $TheReferrer = $CurrentGeneration | where {
+						    $_.Table -eq $Ref
+					    } | foreach{ $_.Referrer }; write-Warning "circular reference involving $TheReferrer -> $($_)"
+					    break;
+				    }
+			    }
+			    $CurrentGeneration = $TheListOfDependencies | where { $_.Referrer -in $CurrentGeneration.Table }
+			    $ii-- #iterator to prevent an endless loop
+		    }
+		
+		
+	    }
+	    else
+	    { $TheOrderOfDependency }
+    }
+ }
 
 
 
