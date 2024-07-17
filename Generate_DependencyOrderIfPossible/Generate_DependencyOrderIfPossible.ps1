@@ -31,7 +31,9 @@
 
     .EXAMPLE
 
-    Generate_DependencyOrderIfPossible  PubsDSN 'PubsWithACircularRelationship' '*' 'sa' 'ismellofpoo4U'
+    Generate_DependencyOrderIfPossible  PubsDSN 'PubsWithACircularRelationship' '*' 'sa' 'AhaThatsNotMyPassword'
+
+
 	
 #>
 function Generate_DependencyOrderIfPossible
@@ -59,17 +61,6 @@ function Generate_DependencyOrderIfPossible
 
 		[string]$TablesToInclude = '*' #single wildcard string schema and table
 	)
-	
-	$SourceDSN = 'PubsDSN'
-	$Database = 'PubsWithACircularRelationship'
-	$Schemas = '*'; # or a list of schemas as in Flyway
-	$User = 'sa'; #the user for the connection
-	$Password = 'ismellofpoo4U'; #The password for the connection
-	$Secretsfile = $null; #if you use a secrets file.
-	$TablesToInclude = '*'; #single wildcard string schema and table
-	
-	
-	
 	
 	# Firstly, determine the connection
 	$DSN = Get-OdbcDsn $SourceDSN -ErrorAction SilentlyContinue
@@ -157,12 +148,12 @@ $WhereClause  AND TABLE_TYPE = 'BASE TABLE';
     $WhereClause AND TABLE_TYPE = 'BASE TABLE';
 "@, $conn);
 	}
-	elseif ($RDBMS -ieq ('oracle'))
+    elseif ($RDBMS -ieq ('oracle'))
 	{
-		$DependencyCommand = New-object System.Data.Odbc.OdbcCommand(@"
+    $DependencyCommand = New-object System.Data.Odbc.OdbcCommand(@"
     SELECT 
-    concat(uc.owner, '.', uc.table_name) AS The_Table, 
-    concat(c.owner, '.', c.table_name) AS Referenced_by
+    concat(concat(uc.owner, '.'), uc.table_name) AS The_Table, 
+    Concat(concat(c.owner, '.'), c.table_name) AS Referenced_by
     FROM 
         all_tables t
     LEFT OUTER JOIN
@@ -198,13 +189,17 @@ $WhereClause  AND TABLE_TYPE = 'BASE TABLE';
             a.constraint_type = 'R'
     ) uc ON t.owner = uc.ref_owner AND t.table_name = uc.ref_table_name
     WHERE 
-        t.owner NOT IN ('SYS', 'SYSTEM') 
+        t.owner IN ('$(($Schemas -split ',') -join "','") 
         AND t.iot_type IS NULL
     ORDER BY 
         t.owner, t.table_name;
+   
 
 "@, $conn);
-	};
+    }
+  else
+    {write-error "cannot recognise the ODBC driver"}  ;
+	
 <# now get the relationship data #>
 	$DependencyData = New-Object system.Data.DataSet;
 	(New-Object system.Data.odbc.odbcDataAdapter($DependencyCommand)).fill($DependencyData) | out-null;
