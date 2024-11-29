@@ -1,0 +1,319 @@
+﻿$VerbosePreference = 'Silentlycontinue'
+
+@( #Beginning if tests	
+<# sample test
+ @{'Name'='value'; 'Type'='equivalence/Equlity/ShouldBe/test etc'; 'Ref'=@'
+'@; 'Diff'=@' 
+'@}
+#>
+	
+	
+	@{
+		'Name' = 'Dotted Section'; 'Type' = 'equivalence';
+		'Ref' = @'
+[dog."tater.man"]
+type.name = "pug"
+'@; 'Diff' = @' 
+[dog."tater.man".type]
+name = "pug"
+'@
+	},
+	@{
+		'Name' = 'Single Entry Array'; 'Type' = 'ShouldBe'; 'Ref' = @'
+[flyway]
+mixed = true
+outOfOrder = true
+locations = ["filesystem:migrations"]
+validateMigrationNaming = true
+defaultSchema = "dbo"
+
+[flyway.placeholders]
+placeholderA = "A"
+placeholderB = "B"
+'@; 'ShouldBe' = @{
+			'flyway' = @{
+				'url' = 'jdbc:mysql://localhost:3306/customer_test?autoreconnect'; 'placeholders' = @{
+					'email_type' = @{
+						'work' = 'Traba'; 'primary' = 'Primario'
+					}; 'phone_type' = @{ 'home' = 'Casa' }
+				};
+				'password' = 'pa$$w3!rd'; 'driver' = 'com.mysql.jdbc.Driver';
+				'locations' = 'filesystem:src/main/resources/sql/migrations';
+				'schemas' = 'customer_test'; 'user' = 'sysdba'
+			}
+		}
+	},
+	# test of an array with a trailing comma
+	@{
+		'Name' = 'array of values with trailing comma'; 'Type' = 'ShouldBe';
+		# The ini code
+		'Ref' = @'
+array1 = ["value1", "value2", "value3,"] 
+'@;
+		# The PSON 
+		'Shouldbe' = @{ 'array1' = @('value1', 'value2', 'value3') }
+	},
+	# test of a map
+	@{
+		'Name' = 'map of values'; 'Type' = 'ShouldBe';
+		# The ini code
+		'Ref' = @'
+array1 = ["value1", "value2", "value3,"] 
+'@;
+		# The PSON 
+		'Shouldbe' = @{ 'array1' = @('value1', 'value2', 'value3') }
+	},
+	# The quick brown fox equivalence test
+	@{
+		'Name' = 'folding of strings'; 'Type' = 'test';
+		'Ref' = @'
+# The following strings are byte-for-byte equivalent:
+[truisms]
+str1 = "The quick brown fox jumps over the lazy dog."
+str2 = """
+The quick brown \
+
+
+  fox jumps over \
+    the lazy dog."""
+str3 = """\
+       The quick brown \
+       fox jumps over \
+       the lazy dog.\
+       """
+
+'@;
+		'test' = {
+			param ($test)
+			$test.truisms.str1 -eq $test.truisms.str1 -and $test.truisms.str1 -eq $test.truisms.str3
+		}
+	}
+	# End of tests
+) | foreach{
+	$FirstString = $_.Ref; $SecondString = $_.Diff; $ShouldBe = $_.Shouldbe; $Test = $_.test;
+	if ($_.Type -notin ('equality', 'equivalence', 'shouldbe', 'test'))
+	{ Write-error "the $($_.Name) $($_.Type) Test was of the wrong type" }
+	if ($FirstString -eq $null)
+	{ Write-error "no reference object in the $($_.Name) $($_.Type) Test" }
+	$ItWentWell = switch ($_.Type)
+	{
+		'Equivalence' {
+			# Are they exactly equivalent (not necessarily correct) ?
+			(($FirstString | convertfrom-ini | convertTo-json -depth 5) -eq
+				($SecondString | convertfrom-ini | convertTo-json -depth 5))
+		}
+		'Equality' {
+			# Are is it the same as the supplied Javascript ? (where you have a checked result))
+			# caution as hashtables aren't ordered.
+			(($FirstString | convertfrom-ini | convertTo-json -depth 5) -eq $SecondString)
+		}
+		'Test' {
+			# does it pass the test supplied as a scriptbox by returning 'true' rather than 'false'
+			$Test.Invoke(($FirstString | convertfrom-ini))
+		}
+		'ShouldBe' { # compare with a powershell object directly 
+            $TheTOML = $FirstString | Convertfrom-ini 
+            !(Compare-Object -ReferenceObject $TheTOML -DifferenceObject $ShouldBe)
+		}
+		default { $false }
+	}
+	write-output "The $($_.Name) '$($_.Type)' test went $(if ($ItWentWell) { 'well' }
+		else { 'badly' })"
+}
+
+@(#  Tests
+	@('embedded parameter Test',
+		'table = [{ a = 42, b = test }, {c = 4.2} ]',
+		'{"table":[{"a":42,"b":"test"},{"c":4.2}]}'
+	),
+	@('Array with embedded tables',
+		'MyArray = [ { x = 1, y = 2, z = 3 }, { x = 7, y = 8, z = 9 }, { x = 2, y = 4, z = 8 } ]
+    ',
+		'{"MyArray":[{"y":2,"z":3,"x":1},{"y":8,"z":9,"x":7},{"y":4,"z":8,"x":2}]}'
+	),
+	@('embedded table Test',
+		'table = [ { a = 42, b = "test" }, {c = 4.2} ]',
+		'{"table":[{"a":42,"b":"test"},{"c":4.2}]}'
+	),
+	@('array of arrays',
+		' MyArray = [ { x = 1, y = 2, z = 3 },
+    { x = 7, y = 8, z = 9 },
+    { x = 2, y = 4, z = 8 } ]
+', '{"MyArray":[{"y":2,"z":3,"x":1},{"y":8,"z":9,"x":7},{"y":4,"z":8,"x":2}]}'
+	),
+	@('inline_table',
+		'MyInlineTable={ key1 = "value1", key2 = 123, key3 = "true"}',
+		'{"MyInlineTable":[{"key3":"true","key1":"value1","key2":123}]}'
+	),
+	@('Flyway config file', @'
+flyway.driver=com.mysql.jdbc.Driver
+flyway.url=jdbc:mysql://localhost:3306/customer_test?autoreconnect=true
+flyway.user=sysdba
+flyway.password=pa$$w3!rd
+flyway.schemas=customer_test
+flyway.locations=filesystem:src/main/resources/sql/migrations
+flyway.placeholders.email_type.primary=Primario
+flyway.placeholders.email_type.work=Traba
+flyway.placeholders.phone_type.home=Casa
+'@,
+		'{"flyway":{"url":"jdbc:mysql://localhost:3306/customer_test?autoreconnect=true","placeholders":{"email_type":{"work":"Traba","primary":"Primario"},"phone_type":{"home":"Casa"}},"password":"pa$$w3!rd","driver":"com.mysql.jdbc.Driver","locations":"filesystem:src/main/resources/sql/migrations","schemas":"customer_test","user":"sysdba"}}'
+	), #long strings that wrap
+	@('long strings that wrap', @'
+# Settings are simple key-value pairs
+flyway.key=value
+# Single line comment start with a hash
+
+# Long properties can be split over multiple lines by ending each line with a backslash
+flyway.locations=filesystem:my/really/long/path/folder1,\
+    filesystem:my/really/long/path/folder2,\
+    filesystem:my/really/long/path/folder3
+
+# These are some example settings
+flyway.url=jdbc:mydb://mydatabaseurl
+flyway.schemas=schema1,schema2
+flyway.placeholders.keyABC=valueXYZ
+'@, @'
+{"flyway":{"url":"jdbc:mydb://mydatabaseurl","schemas":["schema1","schema2"],"key":"value","placeholders":{"keyABC":"valueXYZ"},"locations":["filesystem:my/really/long/path/folder1","filesystem:my/really/long/path/folder2","filesystem:my/really/long/path/folder3"]}}
+'@
+	), #Flyway config with array
+	@('Flyway config with array', @'
+[environments.sample]
+url = "jdbc:h2:mem:db"
+user = "sample user"
+password = "sample password"
+dryRunOutput = "/my/output/file.sql"
+[flyway]
+# It is recommended to configure environment as a commandline argument. This allows using different environments depending on the caller.
+environment = "sample" 
+locations = ["filesystem:path/to/sql/files","Another place"]
+[environments.build]
+ url = "jdbc:sqlite::memory:"
+ user = "buildUser"
+ password = "buildPassword"
+[flyway.check]
+buildEnvironment = "build"
+'@, @'
+{"environments":{"sample":{"dryRunOutput":"/my/output/file.sql","url":"jdbc:h2:mem:db","user":"sample user","password":"sample password"},"build":{"url":"jdbc:sqlite::memory:","user":"buildUser","password":"buildPassword"}},"flyway":{"environment":"sample","check":{"buildEnvironment":"build"},"locations":["filesystem:path/to/sql/files","Another place"]}}
+'@
+	), #are escaped quotes ignored?
+	@('are escaped quotes ignored?', @'
+str = "I'm a string. \"You can quote me\". Name\tJos\u00E9\nLocation\tSF."
+# This is a full-line comment
+key = "value"  # This is a comment at the end of a line
+another = "# This is not a comment"
+'@, @'
+{"another":"# This is not a comment","key":"value","str":"I\u0027m a string. \"You can quote me\". Name\tJosé\nLocation\tSF."}
+'@
+	), #check for unicode and quoted values
+	@('check for unicode and quoted values', @'
+"127.0.0.1" = "value"
+"character encoding" = "value"
+"ʎǝʞ" = "value"
+'key2' = "value"
+'quoted "value"' = "value"
+'@, @'
+{"ʎǝʞ":"value","key2":"value","character encoding":"value","quoted \"value\"":"value","127.0.0.1":"value"}
+'@
+	), #Check for escapes in quoted values
+	@('Check for escapes in quoted values', @'
+name = "Orange"
+physical.color = "orange"
+physical.shape = "round"
+site."google.com" = true
+'@, @'
+{"site":{"google.com":"true"},"physical":{"shape":"round","color":"orange"},"name":"Orange"}
+'@
+	), #dotted hashtable
+	@('Title', @'
+name = "Orange"
+physical.color = "orange"
+physical.shape = "round"
+site."google.com" = true
+'@, @'
+{"site":{"google.com":"true"},"physical":{"shape":"round","color":"orange"},"name":"Orange"}
+'@
+	), #white space between the dots
+	@('white space between the dots', @'
+fruit.name = "banana"     # this is best practice
+fruit. color = "yellow"    # same as fruit.color
+fruit . flavor = "banana"   # same as fruit.flavor
+'@, @'
+{"fruit":{"color":"yellow","name":"banana","flavor":"banana"}}
+'@
+	), # Array as an assignment to a key
+	@('Array as an assignment to a key', @'
+MyArray = ["Yan",'Tan','Tethera']
+'@, @'
+{"MyArray":["Yan","Tan","Tethera"]}
+'@
+	), #Embedded hashtable as assignment
+	@('Embedded hashtable as assignment', @'
+[dog."tater.man"]
+type.name = "pug"
+'@, @'
+{"dog":{"tater.man":{"type":{"name":"pug"}}}}
+'@
+	), #ini-style table
+	@('ini-style table', @'
+# Top-level table begins.
+name = Fido
+breed = "pug"
+
+# Top-level table ends.
+[owner]
+name = 'Regina Dogman'
+member_since = 1999-08-04
+'@, @'
+{"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"1999-08-04"}}
+'@
+	)
+<#	  #My Test
+,	@('Title', @'
+INI
+'@, @'
+JSON
+'@
+	) 
+
+#>
+) | foreach {
+	Write-Verbose "Running the '$($_[0])' test"
+    $result = ConvertFrom-ini($_[1]) | convertTo-JSON -Compress -depth 10
+	    if ($result -ne $_[2])
+	    {
+		    Write-Warning "Oops! $($_[0]): $($_[1]) produced `n$result ...not... `n$($_[2])"
+	    }
+	    else { Write-host "$($_[0]) test successful" }
+    }
+	
+
+$TheErrorFile="$($env:TEMP)\warning.txt"
+"no error">$TheErrorFile
+$null=ConvertFrom-INI @'
+name = "Tom"
+name = "Pradyun"
+'@ 3>$TheErrorFile
+if ((Type $TheErrorFile) -ne "Attempt to redefine Key name with 'Pradyun'")
+    {Write-Warning "Should have given warning`"Attempt to redefine Key name with 'Pradyun'`""}
+else {write-host " test to prevent redefining  Key name succeeded"}
+
+$null=ConvertFrom-INI @'
+spelling = "favorite"
+"spelling" = "favourite"
+'@ 3>$TheErrorFile
+if ((Type $TheErrorFile) -ne "Attempt to redefine Key `"spelling`" with 'favourite'")
+    {Write-Warning "Should have given warning`"Attempt to redefine Key `"spelling`" with 'favourite'`""}
+else {write-host " test to prevent attempt to redefine Key succeeded"}
+
+# THE FOLLOWING IS INVALID
+$null=ConvertFrom-INI @'
+# This defines the value of fruit.apple to be an integer.
+fruit.apple = 1
+
+# But then this treats fruit.apple like it's a table.
+# You can't turn an integer into a table.
+fruit.apple.smooth = true
+'@3>$TheErrorFile
+if ((Type $TheErrorFile) -ne "Key apple redefined with true")
+    {Write-Warning "Should have given the warning`"Key apple redefined with true`""}
+else {write-host "Test to prevent attempt to implcitly redefine a simple value as an object succeeded"}

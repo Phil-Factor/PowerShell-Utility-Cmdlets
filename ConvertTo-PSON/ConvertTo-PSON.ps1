@@ -67,7 +67,6 @@ function ConvertTo-PSON
 				$bbEnd = "`r`n'@$padding";
 			}
 		}
-		write-verbose "1/ $TheKey, $TheChild, $IsChildAString $column $($TheOutput.Length)"
 		if ([string]::IsNullOrEmpty($TheKey))
 		{ "$MaybeAComma$margin$bbStart$TheChild$bbEnd" }
 		else
@@ -97,7 +96,6 @@ function ConvertTo-PSON
 		
 	}
     # cmdlet starts here
-	Write-Verbose "2/ called with parameter $($TheObject.GetType().Name) at level $currentDepth"
     # make sure that the result is nicely formatted
 	$Padding = '                      '.Substring(1, ($currentdepth * 2))
 	$TheOutput = [string]'';
@@ -122,17 +120,14 @@ function ConvertTo-PSON
         {$TheOldObject=$TheObject
         $TheObject=$TheOldObject|foreach{[pscustomobject]$_}}
 	
-	Write-Verbose "3/ the parameter is an $($TheObject.GetType().Name) of count $($TheObject.Count)"
 	
     if ($TheObject.Count -eq $null # -and $TheObject.psobject.Properties.count -lt 1
         )
 	{
-		Write-Verbose "4/ this has null count - $TheObject.Name"
 		$TheOutput += & $Formatting  "$($_.Name)" ""  $false
 	} 
 	if ($TheObject.Count -eq 0)
 	{
-		Write-Verbose "5/ this has no count - $TheObject.Name"
 		$TheOutput += & $Formatting  "$($_.Name)" "@()" $false
 	}
     elseif ($ObjectIsStringOrValue) 
@@ -144,42 +139,34 @@ function ConvertTo-PSON
 		$MaybeAComma = '';
 		$TheObject.PSObject.Properties | where { $_.Name -notin $Avoid } | Foreach{
 			$child = $_.Value;
-			Write-verbose "6/ Its an object. type of child ='$($_.TypeNameOfValue)', value is '$child'"
 			$ChildisAString = $_.TypeNameOfValue -like '*String*';
 			if ($child -eq $null)
 			{
-			    Write-verbose " 6a/ Child Was null so represent that"
             	$TheOutput += & $Formatting  "$($_.Name)" '$null' $false
 			}
             elseif ($_.TypeNameOfValue -eq 'System.Boolean')
 			{
-			    Write-verbose " 6b/ Child Was logical value"
 				$TheOutput += & $Formatting  "$($_.Name)" "`$$child" $false
 			}
 			elseif ($ChildisAString -or
 				$child.GetType().IsValueType)
 			{
-			    Write-verbose " 6c/ Child Was an easily represented object"
 				$TheOutput += & $Formatting  "$($_.Name)" "$child" $ChildisAString
 			}
 			elseif (($CurrentDepth + 1) -eq $Depth)
 			{
-			    Write-verbose " 6d/ no recursion possible so do your best"
 				$TheOutput += & $Formatting   "$($_.Name)" "$child" $ChildisAString
 			}
 			elseif ($child -in @($null, '') -and ($child.count -lt 1)  ) #empty array
 			{
-			    Write-verbose " 6e/ Child '$($_.Name)' was a null array"
 				$TheOutput += & $Formatting   "$($_.Name)" "@()" $false
 			}
 			elseif ($child.count -eq 0) #empty hashtable
 			{
-			    Write-verbose " 6f/ Child $($_.Name) Was an empty hastable"
 				$TheOutput += & $Formatting   "$($_.Name)" "@{}" $false
 			}
 			else #not a value but an object of some sort
 			{
-				Write-Verbose "7/ recursion with $($_.TypeNameOfValue) object  $($_.Name)"
                 if ($_.TypeNameOfValue -eq 'System.Object[]')
                 {$TheOutput += & $Formatting   "$($_.Name)" "$(ConvertTo-PSON -TheObject $child -depth $Depth -Avoid $Avoid  -CurrentDepth ($currentDepth + 1) -starting $False)" $false}
 				else
@@ -195,7 +182,6 @@ function ConvertTo-PSON
 	else # it is an array
 	{
 		$TheOutput += & $AddBracket "@("
-        Write-Verbose "8/ we have an array of $($TheObject.Count) items"
 		if ($TheObject.Count -gt 0)
 		{
 			$MaybeAComma = '';
@@ -207,7 +193,6 @@ function ConvertTo-PSON
 				{
                     $ChildType=$child.GetType().Name
                     $ChildisAString = $ChildType -in @('String', 'String[]');
-					Write-Verbose "9/ array element $child is a $ChildType "
                      if ($ChildType -eq 'Boolean')
                         {$TheOutput += & $Formatting  '' "`$$child" $false}
 					elseif (($child.GetType().BaseType.Name -eq 'ValueType') -or
@@ -219,7 +204,6 @@ function ConvertTo-PSON
 					}
 					else #not a value but an object of some sort so do a recursive call
 					{
-						Write-Verbose "10/ recursion with array element  $child"
 						$TheOutput += ConvertTo-PSON -TheObject $child -depth $Depth -Avoid $Avoid  `
 													 -CurrentDepth ($currentDepth + 1) -starting $False -ParentIsArray $true
 						
