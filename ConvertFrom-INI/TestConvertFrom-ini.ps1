@@ -265,8 +265,86 @@ name = 'Regina Dogman'
 member_since = 1999-08-04
 '@, @'
 {"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"1999-08-04"}}
+'@),	@('Ensuring that types are parsed correctly',@'
+#String
+name=phil Factor
+Name1="Phil Factor"
+Name2='Phil Factor'
+
+# integers
+int1 = +99
+int2 = 42
+int3 = 0
+int4 = -17
+
+# hexadecimal with prefix `0x`
+hex1 = 0xDEADBEEF
+hex2 = 0xdeadbeef
+hex3 = 0xdead_beef
+
+# octal with prefix `0o`
+oct1 = 0o01234567
+oct2 = 0o755
+
+# binary with prefix `0b`
+bin1 = 0b11010110
+
+# fractional
+float1 = +1.0
+float2 = 3.1415
+float3 = -0.01
+
+# exponent
+float4 = 5e+22
+float5 = 1e06
+float6 = -2E-2
+
+# both
+float7 = 6.626e-34
+
+# separators
+float8 = 224_617.445_991_228
+
+# infinity
+infinite1 = inf # positive infinity
+infinite2 = +inf # positive infinity
+infinite3 = -inf # negative infinity
+
+# not a number
+not1 = nan
+not2 = +nan
+not3 = -nan 
+'@, @'
+{"float5":1000000,"float8":224617.445991228,"oct1":342391,"hex2":3735928559,"float2":3.1415,"infinite1":"inf","hex3":3735928559,"float1":1,"int1":99,"not2":NaN,"float4":5E+22,"not1":NaN,"oct2":493,"infinite3":"-inf","int2":42,"not3":NaN,"infinite2":Infinity,"int3":0,"Name1":"Phil Factor","hex1":3735928559,"int4":-17,"float7":6.626E-34,"Name2":"Phil Factor","float6":-0.02,"name":"phil Factor","float3":-0.01,"bin1":214}
 '@
-	)
+	),	@('Check the standard string and string escapes', @'
+
+str1 = "I'm a string."
+str2 = "You can \"quote\" me."
+str3 = "Name\tJos\u00E9\nLoc\tSF."
+str4 = """
+Roses are red
+Violets are blue"""
+
+str5 = """\
+  The quick brown \
+  fox jumps over \
+  the lazy dog.\
+  """
+path = 'C:\Users\nodejs\templates'
+path2 = '\\User\admin$\system32'
+quoted = 'Tom "Dubs" Preston-Werner'
+regex = '<\i\c*\s*>'
+re = '''I [dw]on't need \d{2} apples'''
+lines = '''
+The first newline is
+trimmed in raw strings.
+All other whitespace
+is preserved.
+'''
+'@, @'
+{"re":"I [dw]on\u0027t need \\d{2} apples","path":"C:\\Users\nodejs\templates","str5":"The quick brown fox jumps over the lazy dog.","str4":"Roses are red\r\nViolets are blue","quoted":"Tom \"Dubs\" Preston-Werner","str3":"Name\tJosé\nLoc\tSF.","path2":"\\User\\admin$\\system32","regex":"\u003c\\i\\c*\\s*\u003e","str2":"You can \"quote\" me.","lines":"The first newline is\r\ntrimmed in raw strings.\r\nAll other whitespace\r\nis preserved.\r\n","str1":"I\u0027m a string."}
+'@)
 <#	  #My Test
 ,	@('Title', @'
 INI
@@ -317,3 +395,4 @@ fruit.apple.smooth = true
 if ((Type $TheErrorFile) -ne "Key apple redefined with true")
     {Write-Warning "Should have given the warning`"Key apple redefined with true`""}
 else {write-host "Test to prevent attempt to implcitly redefine a simple value as an object succeeded"}
+

@@ -79,6 +79,43 @@ function ConvertFrom-INI
     { x = 2, y = 4, z = 8 } ]
     ===========================================================================
 #>
+
+$ConvertStringToNativeValue = {
+    param (
+        [string]$InputString
+    )
+
+    # Remove underscores for readability (applies to all formats)
+    $cleanedInput = $InputString.Replace('_', '')
+
+    if ($cleanedInput -match '^(?:\+|-)?\d+$') {
+        # Integer (e.g., +99, -17, 0)
+        return [int]$cleanedInput
+    } elseif ($cleanedInput -match '^0x[0-9a-fA-F]+$') {
+        # Hexadecimal (e.g., 0xDEADBEEF)
+        return [convert]::ToInt64($cleanedInput, 16)
+    } elseif ($cleanedInput -match '^0o[0-7]+$') {
+        # Octal (e.g., 0o755)
+        return [convert]::ToInt64($cleanedInput.Substring(2), 8)
+    } elseif ($cleanedInput -match '^0b[01]+$') {
+        # Binary (e.g., 0b11010110)
+        return [convert]::ToInt64($cleanedInput.Substring(2), 2)
+    } elseif ($cleanedInput -match '^(?:\+|-)?\d*\.?\d+(?:e[+-]?\d+)?$') {
+        # Float or scientific notation (e.g., 3.1415, 5e+22)
+        return [double]$cleanedInput
+    } elseif ($cleanedInput -match '[ +1\r\n]inf') {
+        # Infinity (e.g., +inf, -inf)
+        if ($cleanedInput -like '-inf') 
+        {return [double]::NegativeInfinity } 
+        else {return [double]::PositiveInfinity }
+    } elseif ($cleanedInput -match '^(?:\+|-)?nan$') {
+        # NaN (e.g., nan, +nan, -nan)
+        return [double]::NaN
+    } else {
+        return $InputString -replace "^[`"\'](.*)[`"\']$", '$1' 
+    }
+}
+
 $BuildInlineTableorArray = {<# compile nested hashtables and arrays #>
 	Param ([string]$String)
 	$Stacklength = 20 #the depth of the arrays and tables.
@@ -243,7 +280,7 @@ a dotted notation. #>
 )|(?<DelimitedKeyValuePair>(?m:^)[ ]*?[^=\r\n]{1,200}[ ]*?=[ ]*?'.+?')(?# Delimited Key-Value Pair
 )|(?<KeyCommaDelimitedValuePair>(?m:^).{1,40}=(?:'[^']*'|\b\w+\b)\s*,\s*(?:'[^']*'|\b\w+\b)(?:\s*,\s*(?:'[^']*'|\b\w+\b))*)(?# 
 Matches key-value pairs where the value is a simple comma-delimited list
-)|(?<KeyValuePair>(?m:^)[^=\r\n]{1,200}[ ]*?=[ ]*?.{1,200})(?# Matches key-value pairs separated by =.
+)|(?<KeyValuePair>(?m:^)[^=\r\n]{1,200}[ ]*?=[ ]*?[^#\r\n]{1,200})(?# Matches key-value pairs separated by =.
 )
 '@
 # was
@@ -375,7 +412,7 @@ or key-value pair) and process accordingly.#>
 						$Rvalue = $BuildInlineTableorArray.invoke($RValue)
 					}
 					elseif ($Matchname -in ( 'MultilineQuotedKeyValuePair',	'QuotedKeyValuePair',
-                                             'MultilineDelimitedKeyValuePair',	'DelimitedKeyValuePair'))
+                                             'MultilineLiteralKeyValuePair',	'DelimitedKeyValuePair'))
 					{
 						$RValue=$ConvertEscapedChars.Invoke($ConvertEscapedUnicode.Invoke($Rvalue)) -join "";
 					}
@@ -386,9 +423,9 @@ or key-value pair) and process accordingly.#>
  					}
 					else
 					{
-						if ($RValue -like '*,*')
+						if ($RValue -like '*,*') #it is a list 
 						{ $RValue = $BuildInlineTableorArray.invoke($RValue) }
-						else { $RValue = $ParseStringArray.Invoke($RValue)[0] }
+						else { $RValue = $ConvertStringToNativeValue.invoke($RValue)[0] }#sreingarray
 					}
                     #$ParseStringArray.invoke('pinky,perky,bill,ben')
 					$ObjectHierarchy = $ParseStringArray.Invoke($LValue, '\.')
