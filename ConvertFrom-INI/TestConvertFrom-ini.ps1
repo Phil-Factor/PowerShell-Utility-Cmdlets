@@ -264,7 +264,7 @@ breed = "pug"
 name = 'Regina Dogman'
 member_since = 1999-08-04
 '@, @'
-{"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"1999-08-04"}}
+{"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"\/Date(933721200000)\/"}}
 '@),	@('Ensuring that types are parsed correctly',@'
 #String
 name=phil Factor
@@ -315,7 +315,7 @@ not1 = nan
 not2 = +nan
 not3 = -nan 
 '@, @'
-{"float5":1000000,"float8":224617.445991228,"oct1":342391,"hex2":3735928559,"float2":3.1415,"infinite1":"inf","hex3":3735928559,"float1":1,"int1":99,"not2":NaN,"float4":5E+22,"not1":NaN,"oct2":493,"infinite3":"-inf","int2":42,"not3":NaN,"infinite2":Infinity,"int3":0,"Name1":"Phil Factor","hex1":3735928559,"int4":-17,"float7":6.626E-34,"Name2":"Phil Factor","float6":-0.02,"name":"phil Factor","float3":-0.01,"bin1":214}
+{"float5":1000000,"float8":224617.445991228,"oct1":342391,"hex2":3735928559,"float2":3.1415,"infinite1":Infinity,"hex3":3735928559,"float1":1,"int1":99,"not2":NaN,"float4":5E+22,"not1":NaN,"oct2":493,"infinite3":-Infinity,"int2":42,"not3":NaN,"infinite2":Infinity,"int3":0,"Name1":"Phil Factor","hex1":3735928559,"int4":-17,"float7":6.626E-34,"Name2":"Phil Factor","float6":-0.02,"name":"phil Factor","float3":-0.01,"bin1":214}
 '@
 	),	@('Check the standard string and string escapes', @'
 
@@ -344,7 +344,34 @@ is preserved.
 '''
 '@, @'
 {"re":"I [dw]on\u0027t need \\d{2} apples","path":"C:\\Users\nodejs\templates","str5":"The quick brown fox jumps over the lazy dog.","str4":"Roses are red\r\nViolets are blue","quoted":"Tom \"Dubs\" Preston-Werner","str3":"Name\tJosé\nLoc\tSF.","path2":"\\User\\admin$\\system32","regex":"\u003c\\i\\c*\\s*\u003e","str2":"You can \"quote\" me.","lines":"The first newline is\r\ntrimmed in raw strings.\r\nAll other whitespace\r\nis preserved.\r\n","str1":"I\u0027m a string."}
-'@)
+'@),@('Testing dates', @'
+# offset datetime
+odt1 = 1979-05-27T07:32:00Z
+odt2 = 1979-05-27T00:32:00-07:00
+odt3 = 1979-05-27T00:32:00.999999-07:00
+
+# local datetime
+ldt1 = 1979-05-27T07:32:00
+ldt2 = 1979-05-27T00:32:00.999999
+
+# local date
+ld1 = 1979-05-27
+
+# local time
+lt1 = 07:32:00
+lt2 = 00:32:00.999999
+'@, @'
+{"ld1":"\/Date(296607600000)\/","odt3":"\/Date(296638320999)\/","lt2":{"Ticks":19209999990,"Days":0,"Hours":0,"Milliseconds":999,"Minutes":32,"Seconds":0,"TotalDays":0.022233796284722222,"TotalHours":0.53361111083333335,"TotalMilliseconds":1920999.999,"TotalMinutes":32.01666665,"TotalSeconds":1920.999999},"ldt2":null,"odt2":"\/Date(296638320000)\/","odt1":"\/Date(296638320000)\/","lt1":{"Ticks":271200000000,"Days":0,"Hours":7,"Milliseconds":0,"Minutes":32,"Seconds":0,"TotalDays":0.31388888888888888,"TotalHours":7.5333333333333332,"TotalMilliseconds":27120000,"TotalMinutes":452,"TotalSeconds":27120},"ldt1":null}
+'@
+	) #My Test
+,	@('Dealing with comments', @'
+# This is a full-line comment
+key = "value"  # This is a comment at the end of a line
+another = "# This is not a comment"
+'@, @'
+{"key":"value","another":"# This is not a comment"}
+'@
+	) 
 <#	  #My Test
 ,	@('Title', @'
 INI
@@ -396,3 +423,7 @@ if ((Type $TheErrorFile) -ne "Key apple redefined with true")
     {Write-Warning "Should have given the warning`"Key apple redefined with true`""}
 else {write-host "Test to prevent attempt to implcitly redefine a simple value as an object succeeded"}
 
+
+ConvertFrom-INI @'
+first = "Tom" last = "Preston-Werner" 
+'@

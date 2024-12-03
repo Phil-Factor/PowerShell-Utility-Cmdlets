@@ -40,34 +40,54 @@ function ConvertFrom-INI
 		$CurrentLocation = $null; # used for remembering sections to resolve relative subsections
   
 		# first we define our scriptblocks, used for private routines within the task 
-		
-        <#$UnwrappedInlineTables = {<# unwrap inline tables into separate lines to
-			conform with the old INI file conventions 
-			Param ([string]$String)
-			([regex]'(?<Section>.*?)=\s*?{(?<List>.+?)}\s*(?m:$)').matches($String) |
-			sort-object -property index -Descending | foreach{ #do this from the end
-				$_.Groups
-			} | foreach { #process each inline statement into a section  and key/value pairs
-				if ($_.name -eq 'Section') { $substring = "[$($_.value.trim())]`n" }
-				elseif ($_.name -eq 'list') #the list of key/value pairs 
-				{
-					($ParseStringArray.Invoke($_.value)) | foreach { $substring += "$($_)`n" }
-					# now we replace the inline table with thw standard line-by-line version
-					$BeforeRange = $String.Substring(0, $index)
-					$AfterRange = $String.Substring($index + $Length)
-					# Concatenate the parts with the new substring
-					$String = $BeforeRange + $SubString + $AfterRange
-					$Index = 0; $length = 0;
-				}
-				elseif ($_.name -eq '0')
-				{# find out where the original string was 
-					$Index = $_.Index; $length = $_.Length;
-				}
-				else { write-warning "unknown syntax in inline table" };
-			}
-			$string # and return the altered string.
-		}#>
-		
+        		
+$ConvertStringToNativeValue = {
+	param (
+		[string]$InputString
+	)
+	$LiteralRegex = [regex]@'
+(?i)(?#-----Analysing a Value 
+Integer   )(?<Integer>^(?:\+|-)?\d+$)(?#
+Hex Value )|(?<Hexadecimal>^0x[0-9a-fA-F]+$)(?#
+Octal     )|(?<Octal>^0o[0-7]+$)(?#
+Binary    )|(?<Binary>^0b[01]+$)(?#
+Float/ scientific notation)|(?<Float>^(?:\+|-)?\d*\.?\d+(?:e[+-]?\d+)?$)(?#
+Infinity e.g., +inf, -inf)|(?<Infinity>^[+\s-]{0,2}?inf)(?#
+NAN       )|(?<NAN>^[+\s-]{0,2}?nan)(?#
+ISO 8601 UTC datetime    )|(?<ISODateTime>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$)(?#
+ISO 8601 Offset datetime )|(?<ISOOffsetDatetime>^^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-]\d{2}:\d{2}$)(?#
+Local Datetime           )|(?<LocalDatetime>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$)(?#
+Local Date)|(?<LocalDate>^\d{4}-\d{2}-\d{2}$$)(?#
+Time with seconds        )|(?<Time>^\d{2}:\d{2}:\d{2}(?:\.\d+)?$)(?#
+String    )|(?<String>^.+$)
+'@
+	$cleanedInput = $InputString.Replace('_', '')
+	$identification = $LiteralRegex.matches($cleanedInput).Groups | where {
+		$_.success -eq $true -and $_.Length -gt 0 -and $_.name -ne '0'
+	}
+	
+	switch ($identification.Name)
+	{
+		'Integer' { [int]$cleanedInput }
+		'Hexadecimal' { [convert]::ToInt64($cleanedInput, 16) }
+		'Octal' { [convert]::ToInt64($cleanedInput.Substring(2), 8) }
+		'Binary' { [convert]::ToInt64($cleanedInput.Substring(2), 2) }
+		'Float' { [double]$cleanedInput }
+		'Infinity' {
+			# Infinity (e.g., +inf, -inf)
+			if ($cleanedInput -like '-inf')
+			{ return [double]::NegativeInfinity }
+			else { [double]::PositiveInfinity }
+		}
+		'NAN' { [double]::NaN }
+		'ISODateTime' { [datetimeoffset]::Parse($cleanedInput) }
+		'ISOOffsetDatetime' { [datetimeoffset]::Parse($cleanedInput) }
+		'LocalDate' { [datetime]::Parse($cleanedInput) }
+		'Time' { [timespan]::Parse($cleanedInput) }
+		'String' { $InputString }
+		default { $result = 'Unknown' }
+	}
+}
 <#	
 	.DESCRIPTION
 	===========================================================================
@@ -79,43 +99,6 @@ function ConvertFrom-INI
     { x = 2, y = 4, z = 8 } ]
     ===========================================================================
 #>
-
-$ConvertStringToNativeValue = {
-    param (
-        [string]$InputString
-    )
-
-    # Remove underscores for readability (applies to all formats)
-    $cleanedInput = $InputString.Replace('_', '')
-
-    if ($cleanedInput -match '^(?:\+|-)?\d+$') {
-        # Integer (e.g., +99, -17, 0)
-        return [int]$cleanedInput
-    } elseif ($cleanedInput -match '^0x[0-9a-fA-F]+$') {
-        # Hexadecimal (e.g., 0xDEADBEEF)
-        return [convert]::ToInt64($cleanedInput, 16)
-    } elseif ($cleanedInput -match '^0o[0-7]+$') {
-        # Octal (e.g., 0o755)
-        return [convert]::ToInt64($cleanedInput.Substring(2), 8)
-    } elseif ($cleanedInput -match '^0b[01]+$') {
-        # Binary (e.g., 0b11010110)
-        return [convert]::ToInt64($cleanedInput.Substring(2), 2)
-    } elseif ($cleanedInput -match '^(?:\+|-)?\d*\.?\d+(?:e[+-]?\d+)?$') {
-        # Float or scientific notation (e.g., 3.1415, 5e+22)
-        return [double]$cleanedInput
-    } elseif ($cleanedInput -match '[ +1\r\n]inf') {
-        # Infinity (e.g., +inf, -inf)
-        if ($cleanedInput -like '-inf') 
-        {return [double]::NegativeInfinity } 
-        else {return [double]::PositiveInfinity }
-    } elseif ($cleanedInput -match '^(?:\+|-)?nan$') {
-        # NaN (e.g., nan, +nan, -nan)
-        return [double]::NaN
-    } else {
-        return $InputString -replace "^[`"\'](.*)[`"\']$", '$1' 
-    }
-}
-
 $BuildInlineTableorArray = {<# compile nested hashtables and arrays #>
 	Param ([string]$String)
 	$Stacklength = 20 #the depth of the arrays and tables.
