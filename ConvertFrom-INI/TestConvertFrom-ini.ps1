@@ -1,4 +1,5 @@
-﻿$VerbosePreference = 'Silentlycontinue'
+﻿cls
+$VerbosePreference = 'Silentlycontinue'
 
 @( #Beginning if tests	
 <# sample test
@@ -143,7 +144,7 @@ str3 = """\
 	),
 	@('inline_table',
 		'MyInlineTable={ key1 = "value1", key2 = 123, key3 = "true"}',
-		'{"MyInlineTable":[{"key3":"true","key1":"value1","key2":123}]}'
+		'{"MyInlineTable":{"key3":"true","key1":"value1","key2":123}}'
 	),
 	@('Flyway config file', @'
 flyway.driver=com.mysql.jdbc.Driver
@@ -363,7 +364,7 @@ lt2 = 00:32:00.999999
 '@, @'
 {"ld1":"\/Date(296607600000)\/","odt3":"\/Date(296638320999)\/","lt2":{"Ticks":19209999990,"Days":0,"Hours":0,"Milliseconds":999,"Minutes":32,"Seconds":0,"TotalDays":0.022233796284722222,"TotalHours":0.53361111083333335,"TotalMilliseconds":1920999.999,"TotalMinutes":32.01666665,"TotalSeconds":1920.999999},"ldt2":null,"odt2":"\/Date(296638320000)\/","odt1":"\/Date(296638320000)\/","lt1":{"Ticks":271200000000,"Days":0,"Hours":7,"Milliseconds":0,"Minutes":32,"Seconds":0,"TotalDays":0.31388888888888888,"TotalHours":7.5333333333333332,"TotalMilliseconds":27120000,"TotalMinutes":452,"TotalSeconds":27120},"ldt1":null}
 '@
-	) #My Test
+	) #Dealing with comments
 ,	@('Dealing with comments', @'
 # This is a full-line comment
 key = "value"  # This is a comment at the end of a line
@@ -371,7 +372,25 @@ another = "# This is not a comment"
 '@, @'
 {"key":"value","another":"# This is not a comment"}
 '@
+	)	  # Check for correct interpretation of inline table
+,	@('Check for correct interpretation of inline table', @'
+[environments.full]
+url = "jdbc:h2:mem:flyway_db"
+user = "myuser"
+password = "mysecretpassword"
+driver = "org.h2.Driver"
+schemas = ["schema1", "schema2"]
+connectRetries = 10
+connectRetriesInterval = 60
+initSql = "ALTER SESSION SET NLS_LANGUAGE='ENGLISH';"
+jdbcProperties = { accessToken = "access-token" }
+resolvers = ["my.resolver.MigrationResolver1", "my.resolver.MigrationResolver2"]
+'@, @'
+{"environments":{"full":{"url":"jdbc:h2:mem:flyway_db","initSql":"ALTER SESSION SET NLS_LANGUAGE=\u0027ENGLISH\u0027;","jdbcProperties":{"accessToken":"access-token"},"password":"mysecretpassword","driver":"org.h2.Driver","connectRetriesInterval":60,"connectRetries":10,"resolvers":["my.resolver.MigrationResolver1","my.resolver.MigrationResolver2"],"schemas":["schema1","schema2"],"user":"myuser"}}}
+'@
 	) 
+
+ 
 <#	  #My Test
 ,	@('Title', @'
 INI
@@ -390,7 +409,6 @@ JSON
 	    }
 	    else { Write-host "$($_[0]) test successful" }
     }
-	
 
 $TheErrorFile="$($env:TEMP)\warning.txt"
 "no error">$TheErrorFile
@@ -423,7 +441,190 @@ if ((Type $TheErrorFile) -ne "Key apple redefined with true")
     {Write-Warning "Should have given the warning`"Key apple redefined with true`""}
 else {write-host "Test to prevent attempt to implcitly redefine a simple value as an object succeeded"}
 
+$null=ConvertFrom-INI 'first = "Tom" last = "Preston-Werner" # INVALID'3>$TheErrorFile
+if ((Type $TheErrorFile) -ne @"
+first = "Tom" last = "Preston-Werner" contains a syntax error!
+"@)  {Write-Warning @"
+Should have given the warning`"first = "Tom" last = "Preston-Werner" contains a syntax error!`"
+"@}
+else {write-host "Test to ensure that there is a newline after a key value pair succeeded"}
 
-ConvertFrom-INI @'
-first = "Tom" last = "Preston-Werner" 
-'@
+<#
+
+
+
+
+@'
+[environments.sample]
+url = "jdbc:h2:mem:db"
+user = "sample user"
+password = "sample password"
+dryRunOutput = "/my/output/file.sql"
+[flyway]
+# It is recommended to configure environment as a commandline argument. This allows using different environments depending on the caller.
+environment = "sample" 
+locations = ["filesystem:path/to/sql/files","Another place"]
+[environments.build]
+ url = "jdbc:sqlite::memory:"
+ user = "buildUser"
+ password = "buildPassword"
+[flyway.check]
+buildEnvironment = "build"
+'@|ConvertFrom-INI|convertto-json
+
+$VerbosePreference = 'continue'
+@'
+= "no key name"  # INVALID
+"" = "blank"     # VALID but discouraged
+'' = 'blank'     # VALID but discouraged
+'@|ConvertFrom-INI|convertto-json
+
+Display-Object  (@'
+{
+  "environments": {
+    "full": {
+      "connectRetries": 10,
+      "connectRetriesInterval": 60,
+      "driver": "org.h2.Driver",
+      "initSql": "ALTER SESSION SET NLS_LANGUAGE='ENGLISH';",
+      "password": "mysecretpassword",
+      "resolvers": [
+        "my.resolver.MigrationResolver1",
+        "my.resolver.MigrationResolver2"
+      ],
+      "schemas": [
+        "schema1",
+        "schema2"
+      ],
+      "url": "jdbc:h2:mem:flyway_db",
+      "user": "myuser",
+      "jdbcProperties": {
+        "accessToken": "access-token"
+      }
+    },
+    "prod": {
+      "locations": [
+        "filesystem:sql/migrations_prod"
+      ],
+      "password": "prodpassword",
+      "url": "jdbc:postgresql://localhost:5432/proddb",
+      "user": "produser"
+    },
+    "test": {
+      "locations": [
+        "filesystem:sql/migrations_test"
+      ],
+      "password": "testpassword",
+      "url": "jdbc:postgresql://localhost:5432/testdb",
+      "user": "testuser"
+    }
+  },
+  "flyway": {
+    "baselineDescription": "Initial baseline",
+    "baselineOnMigrate": true,
+    "baselineVersion": "1.0",
+    "callbacks": [
+      "com.example.MyCallback"
+    ],
+    "environment": "prod",
+    "locations": [
+      "filesystem:sql/migrations"
+    ],
+    "outOfOrder": true,
+    "codeAnalysis": {
+      "enabled": true,
+      "rule1": {
+        "description": "Ensure all SELECT statements follow the company SQL guidelines.",
+        "regex": "(?i)^select\\s+.*\\s+from\\s+.*"
+      },
+      "rule2": {
+        "description": "Check all INSERT INTO statements for correct value assignment.",
+        "regex": "^insert\\s+into\\s+.*\\s+values\\s+.*"
+      },
+      "rule3": {
+        "description": "Verify UPDATE statements conform to standard practices.",
+        "regex": "^update\\s+.*\\s+set\\s+.*"
+      }
+    },
+    "dev": {
+      "locations": [
+        "filesystem:sql/migrations_dev"
+      ],
+      "password": "devpassword",
+      "url": "jdbc:h2:mem:flyway_db",
+      "user": "devuser"
+    },
+    "placeholders": {
+      "Branch": "myBranch",
+      "Project": "myProject",
+      "Variant": "myVariant"
+    }
+  }
+}
+'@ |convertfrom-json)
+
+
+
+
+ Display-object (Convertfrom-ini @'
+# Flyway configuration
+[flyway]
+environment = "prod"
+outOfOrder = true
+# baseline settings
+baselineOnMigrate = true
+baselineVersion = "1.0"
+baselineDescription = "Initial baseline"
+locations = ["filesystem:sql/migrations"]
+callbacks = ["com.example.MyCallback"]
+
+# Placeholders
+[flyway.placeholders]
+Project = "myProject"
+Branch = "myBranch"
+Variant = "myVariant"
+
+# Code Analysis (Enterprise feature)
+[flyway.codeAnalysis]
+enabled = true
+rule1.regex = "(?i)^select\\s+.*\\s+from\\s+.*"
+rule1.description = "Ensure all SELECT statements follow the company SQL guidelines."
+rule2.regex = "^insert\\s+into\\s+.*\\s+values\\s+.*"
+rule2.description = "Check all INSERT INTO statements for correct value assignment."
+rule3.regex = "^update\\s+.*\\s+set\\s+.*"
+rule3.description = "Verify UPDATE statements conform to standard practices."
+
+[environments] #You define an environment in the environments (plural) namespace 
+
+# The environment variable has to be lower case
+[flyway.dev]
+url = "jdbc:h2:mem:flyway_db"
+user = "devuser"
+password = "devpassword"
+locations = ["filesystem:sql/migrations_dev"]
+
+[environments.test]
+url = "jdbc:postgresql://localhost:5432/testdb"
+user = "testuser"
+password = "testpassword"
+locations = ["filesystem:sql/migrations_test"]
+
+[environments.prod]
+url = "jdbc:postgresql://localhost:5432/proddb"
+user = "produser"
+password = "prodpassword"
+locations = ["filesystem:sql/migrations_prod"]
+
+[environments.full]
+url = "jdbc:h2:mem:flyway_db"
+user = "myuser"
+password = "mysecretpassword"
+driver = "org.h2.Driver"
+schemas = ["schema1", "schema2"]
+connectRetries = 10
+connectRetriesInterval = 60
+initSql = "ALTER SESSION SET NLS_LANGUAGE='ENGLISH';"
+jdbcProperties = { accessToken = "access-token" }
+resolvers = ["my.resolver.MigrationResolver1", "my.resolver.MigrationResolver2"]
+'@ ) 
+#>
