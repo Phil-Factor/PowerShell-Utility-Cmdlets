@@ -107,5 +107,7 @@ function Compare-SQLTokens
 
 
 Compare-SQLTokens `
-    (Type '\\MillArchive\public\work\Github\FlywayTeamwork\Pubs\Migrations\FormattedFirstRelease' -Raw) `
-    (Type '\\MillArchive\public\work\Github\FlywayTeamwork\Pubs\Migrations\V1.1__FirstRelease.sql' -Raw)
+    (Type "$env:FlywayWorkPath\Pubs\Migrations\FormattedFirstReleaseWithChange" -Raw) `
+    (Type "$env:FlywayWorkPath\Pubs\Migrations\V1.1__FirstRelease.sql" -Raw)
+#Nothing returned. All OK.
+
