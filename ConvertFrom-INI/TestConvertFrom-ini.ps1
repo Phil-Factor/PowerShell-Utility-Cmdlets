@@ -463,4 +463,70 @@ contributors = [
   "Foo Bar <foo@example.com>",
   { name = "Baz Qux", email = "bazqux@example.com", url = "https://example.com/bazqux" }
 ]
-'@|convertFrom-ini|convertTo-json -Depth 10
+'@|convertFrom-ini|convertTo-json -Depth 10 -Compress
+@'
+{"colors":["red","yellow","green"],"integers":[1,2,3],"nested_arrays_of_ints":[[1,2],[3,4,5]],"nested_mixed_array":[[1,2],["a","b","c"]],"numbers":[0.1,0.2,0.5,1,2,5],"string_array":["all","strings","are the same","type"],"contributors":["Foo Bar \u003cfoo@example.com\u003e",{"email":"bazqux@example.com","name":"Baz Qux","url":"https://example.com/bazqux"}]}
+'@
+
+
+@'
+{
+  "colors": [
+    "red",
+    "yellow",
+    "green"
+  ],
+  "integers": [
+    1,
+    2,
+    3
+  ],
+  "nested_arrays_of_ints": [
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      4,
+      5
+    ]
+  ],
+  "nested_mixed_array": [
+    [
+      1,
+      2
+    ],
+    [
+      "a",
+      "b",
+      "c"
+    ]
+  ],
+  "numbers": [
+    0.1,
+    0.2,
+    0.5,
+    1,
+    2,
+    5
+  ],
+  "string_array": [
+    "all",
+    "strings",
+    "are the same",
+    "type"
+  ],
+  "contributors": [
+    "Foo Bar <foo@example.com>",
+    {
+      "email": "bazqux@example.com",
+      "name": "Baz Qux",
+      "url": "https://example.com/bazqux"
+    }
+  ]
+}
+'@|ConvertFrom-Json|convertTo-json -Depth 5 -Compress
+@'
+{"colors":["red","yellow","green"],"integers":[1,2,3],"nested_arrays_of_ints":[[1,2],[3,4,5]],"nested_mixed_array":[[1,2],["a","b","c"]],"numbers":[0.1,0.2,0.5,1,2,5],"string_array":["all","strings","are the same","type"],"contributors":["Foo Bar \u003cfoo@example.com\u003e",{"email":"bazqux@example.com","name":"Baz Qux","url":"https://example.com/bazqux"}]}
+'@
