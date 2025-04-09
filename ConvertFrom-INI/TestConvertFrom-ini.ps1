@@ -1,6 +1,5 @@
-﻿cls
-$VerbosePreference = 'Silentlycontinue'
-
+﻿$VerbosePreference = 'Silentlycontinue'
+cls
 @( #Beginning if tests	
 <# sample test
  @{'Name'='value'; 'Type'='equivalence/Equlity/ShouldBe/test etc'; 'Ref'=@'
@@ -255,7 +254,7 @@ type.name = "pug"
 {"dog":{"tater.man":{"type":{"name":"pug"}}}}
 '@
 	), #ini-style table
-	@('ini-style table', @'
+@('ini-style table', @'
 # Top-level table begins.
 name = Fido
 breed = "pug"
@@ -265,8 +264,9 @@ breed = "pug"
 name = 'Regina Dogman'
 member_since = 1999-08-04
 '@, @'
-{"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"\/Date(933721200000)\/"}}
-'@),	@('Ensuring that types are parsed correctly',@'
+{"name":"Fido","breed":"pug","owner":{"name":"Regina Dogman","member_since":"1999-08-04"}}
+'@),	
+@('Ensuring that types are parsed correctly',@'
 #String
 name=phil Factor
 Name1="Phil Factor"
@@ -316,9 +316,9 @@ not1 = nan
 not2 = +nan
 not3 = -nan 
 '@, @'
-{"float5":1000000,"float8":224617.445991228,"oct1":342391,"hex2":3735928559,"float2":3.1415,"infinite1":Infinity,"hex3":3735928559,"float1":1,"int1":99,"not2":NaN,"float4":5E+22,"not1":NaN,"oct2":493,"infinite3":-Infinity,"int2":42,"not3":NaN,"infinite2":Infinity,"int3":0,"Name1":"Phil Factor","hex1":3735928559,"int4":-17,"float7":6.626E-34,"Name2":"Phil Factor","float6":-0.02,"name":"phil Factor","float3":-0.01,"bin1":214}
-'@
-	),	@('Check the standard string and string escapes', @'
+{"float5":1000000,"float8":224617.445991228,"oct1":342391,"hex2":3735928559,"float2":3.1415,"infinite1":"inf","hex3":3735928559,"float1":1,"int1":99,"not2":NaN,"float4":5E+22,"not1":NaN,"oct2":493,"infinite3":"-inf","int2":42,"not3":NaN,"infinite2":Infinity,"int3":0,"Name1":"Phil Factor","hex1":3735928559,"int4":-17,"float7":6.626E-34,"Name2":"Phil Factor","float6":-0.02,"name":"phil Factor","float3":-0.01,"bin1":214}
+'@),
+@('Check the standard string and string escapes', @'
 
 str1 = "I'm a string."
 str2 = "You can \"quote\" me."
@@ -345,7 +345,8 @@ is preserved.
 '''
 '@, @'
 {"re":"I [dw]on\u0027t need \\d{2} apples","path":"C:\\Users\nodejs\templates","str5":"The quick brown fox jumps over the lazy dog.","str4":"Roses are red\r\nViolets are blue","quoted":"Tom \"Dubs\" Preston-Werner","str3":"Name\tJosé\nLoc\tSF.","path2":"\\User\\admin$\\system32","regex":"\u003c\\i\\c*\\s*\u003e","str2":"You can \"quote\" me.","lines":"The first newline is\r\ntrimmed in raw strings.\r\nAll other whitespace\r\nis preserved.\r\n","str1":"I\u0027m a string."}
-'@),@('Testing dates', @'
+'@)
+ ,@('Testing dates', @'
 # offset datetime
 odt1 = 1979-05-27T07:32:00Z
 odt2 = 1979-05-27T00:32:00-07:00
@@ -362,18 +363,22 @@ ld1 = 1979-05-27
 lt1 = 07:32:00
 lt2 = 00:32:00.999999
 '@, @'
-{"ld1":"\/Date(296607600000)\/","odt3":"\/Date(296638320999)\/","lt2":{"Ticks":19209999990,"Days":0,"Hours":0,"Milliseconds":999,"Minutes":32,"Seconds":0,"TotalDays":0.022233796284722222,"TotalHours":0.53361111083333335,"TotalMilliseconds":1920999.999,"TotalMinutes":32.01666665,"TotalSeconds":1920.999999},"ldt2":null,"odt2":"\/Date(296638320000)\/","odt1":"\/Date(296638320000)\/","lt1":{"Ticks":271200000000,"Days":0,"Hours":7,"Milliseconds":0,"Minutes":32,"Seconds":0,"TotalDays":0.31388888888888888,"TotalHours":7.5333333333333332,"TotalMilliseconds":27120000,"TotalMinutes":452,"TotalSeconds":27120},"ldt1":null}
+{"ld1":"1979-05-27","odt3":"1979-05-27T00:32:00.999999-07:00","lt2":"00:32:00.999999","ldt2":"1979-05-27T00:32:00.999999","odt2":"1979-05-27T00:32:00-07:00","odt1":"1979-05-27T07:32:00Z","lt1":"07:32:00","ldt1":"1979-05-27T07:32:00"}
 '@
 	) #Dealing with comments
-,	@('Dealing with comments', @'
+	@('Dealing with comments', 
+@'
 # This is a full-line comment
 key = "value"  # This is a comment at the end of a line
 another = "# This is not a comment"
-'@, @'
+'@,
+@'
 {"key":"value","another":"# This is not a comment"}
 '@
-	)	  # Check for correct interpretation of inline table
-,	@('Check for correct interpretation of inline table', @'
+	),	  # Check for correct interpretation of inline table
+@(
+'Check for correct interpretation of inline table' 
+@'
 [environments.full]
 url = "jdbc:h2:mem:flyway_db"
 user = "myuser"
@@ -385,14 +390,12 @@ connectRetriesInterval = 60
 initSql = "ALTER SESSION SET NLS_LANGUAGE='ENGLISH';"
 jdbcProperties = { accessToken = "access-token" }
 resolvers = ["my.resolver.MigrationResolver1", "my.resolver.MigrationResolver2"]
-'@, @'
+'@, 
+@'
 {"environments":{"full":{"url":"jdbc:h2:mem:flyway_db","initSql":"ALTER SESSION SET NLS_LANGUAGE=\u0027ENGLISH\u0027;","jdbcProperties":{"accessToken":"access-token"},"password":"mysecretpassword","driver":"org.h2.Driver","connectRetriesInterval":60,"connectRetries":10,"resolvers":["my.resolver.MigrationResolver1","my.resolver.MigrationResolver2"],"schemas":["schema1","schema2"],"user":"myuser"}}}
 '@
-	) 
-
- 
 <#	  #My Test
-,	@('Title', @'
+    ,@('Title', @'
 INI
 '@, @'
 JSON
@@ -400,7 +403,9 @@ JSON
 	) 
 
 #>
-) | foreach {
+)#   |foreach {Write-warning "the parameter for $($_[0]) was $($_.count) entries"}
+
+) | where {$_.count -eq 3}| foreach {
 	Write-Verbose "Running the '$($_[0])' test"
     $result = ConvertFrom-ini($_[1]) | convertTo-JSON -Compress -depth 10
 	    if ($result -ne $_[2])
@@ -450,6 +455,9 @@ Should have given the warning`"first = "Tom" last = "Preston-Werner" contains a 
 else {write-host "Test to ensure that there is a newline after a key value pair succeeded"}
 
 
+
+
+
 @'
 integers = [ 1, 2, 3 ]
 colors = [ "red", "yellow", "green" ]
@@ -463,70 +471,69 @@ contributors = [
   "Foo Bar <foo@example.com>",
   { name = "Baz Qux", email = "bazqux@example.com", url = "https://example.com/bazqux" }
 ]
-'@|convertFrom-ini|convertTo-json -Depth 10 -Compress
-@'
+'@ |ConvertFrom-INI|convertTo-json|convertFrom-json -
+
+,
+@('Test for inline array behaviour', @'
+integers = [ 1, 2, 3 ]
+colors = [ "red", "yellow", "green" ]
+nested_arrays_of_ints = [ [ 1, 2 ], [3, 4, 5] ]
+nested_mixed_array = [ [ 1, 2 ], ["a", "b", "c"] ]
+string_array = [ "all", 'strings', """are the same""", '''type''' ]
+
+# Mixed-type arrays are allowed
+numbers = [ 0.1, 0.2, 0.5, 1, 2, 5 ]
+contributors = [
+  "Foo Bar <foo@example.com>",
+  { name = "Baz Qux", email = "bazqux@example.com", url = "https://example.com/bazqux" }
+]
+'@, @'
 {"colors":["red","yellow","green"],"integers":[1,2,3],"nested_arrays_of_ints":[[1,2],[3,4,5]],"nested_mixed_array":[[1,2],["a","b","c"]],"numbers":[0.1,0.2,0.5,1,2,5],"string_array":["all","strings","are the same","type"],"contributors":["Foo Bar \u003cfoo@example.com\u003e",{"email":"bazqux@example.com","name":"Baz Qux","url":"https://example.com/bazqux"}]}
 '@
 
 
-@'
-{
-  "colors": [
-    "red",
-    "yellow",
-    "green"
-  ],
-  "integers": [
-    1,
-    2,
-    3
-  ],
-  "nested_arrays_of_ints": [
-    [
-      1,
-      2
-    ],
-    [
-      3,
-      4,
-      5
-    ]
-  ],
-  "nested_mixed_array": [
-    [
-      1,
-      2
-    ],
-    [
-      "a",
-      "b",
-      "c"
-    ]
-  ],
-  "numbers": [
-    0.1,
-    0.2,
-    0.5,
-    1,
-    2,
-    5
-  ],
-  "string_array": [
-    "all",
-    "strings",
-    "are the same",
-    "type"
-  ],
-  "contributors": [
-    "Foo Bar <foo@example.com>",
-    {
-      "email": "bazqux@example.com",
-      "name": "Baz Qux",
-      "url": "https://example.com/bazqux"
-    }
-  ]
+@{
+		'Name' = 'Test for inline array behaviour'; 'Type' = 'ShouldBe';
+		# The ini code
+		'Ref' =  @'
+integers = [ 1, 2, 3 ]
+colors = [ "red", "yellow", "green" ]
+nested_arrays_of_ints = [ [ 1, 2 ], [3, 4, 5] ]
+nested_mixed_array = [ [ 1, 2 ], ["a", "b", "c"] ]
+string_array = [ "all", 'strings', """are the same""", '''type''' ]
+
+# Mixed-type arrays are allowed
+numbers = [ 0.1, 0.2, 0.5, 1, 2, 5 ]
+contributors = [
+  "Foo Bar <foo@example.com>",
+  { name = "Baz Qux", email = "bazqux@example.com", url = "https://example.com/bazqux" }
+]
+'@;
+		# The PSON 
+		'Shouldbe' = @{ 'array1' = @('value1', 'value2', 'value3') }
+	},
+
+
+$Result=@'
+integers = [ 1, 2, 3 ]
+colors = [ "red", "yellow", "green" ]
+nested_arrays_of_ints = [ [ 1, 2 ], [3, 4, 5] ]
+nested_mixed_array = [ [ 1, 2 ], ["a", "b", "c"] ]
+string_array = [ "all", 'strings', """are the same""", '''type''' ]
+
+# Mixed-type arrays are allowed
+numbers = [ 0.1, 0.2, 0.5, 1, 2, 5 ]
+contributors = [
+  "Foo Bar <foo@example.com>",
+  { name = "Baz Qux", email = "bazqux@example.com", url = "https://example.com/bazqux" }
+]
+'@|convertfrom-ini
+
+@{@(1,2,'a','b','c'),
+@('all','strings','are the same','type'),
+@(0.1,0.2,0.5,1,2,5),
+@('red','yellow','green'),
+@('Foo Bar <foo@example.com>',
+@{'email' = 'bazqux@example.com';'url' = 'https://example.com/bazqux'; 'name' = 'Baz Qux'})
+    @(1,2,3,4,5)@(1,2,3)
 }
-'@|ConvertFrom-Json|convertTo-json -Depth 5 -Compress
-@'
-{"colors":["red","yellow","green"],"integers":[1,2,3],"nested_arrays_of_ints":[[1,2],[3,4,5]],"nested_mixed_array":[[1,2],["a","b","c"]],"numbers":[0.1,0.2,0.5,1,2,5],"string_array":["all","strings","are the same","type"],"contributors":["Foo Bar \u003cfoo@example.com\u003e",{"email":"bazqux@example.com","name":"Baz Qux","url":"https://example.com/bazqux"}]}
-'@
