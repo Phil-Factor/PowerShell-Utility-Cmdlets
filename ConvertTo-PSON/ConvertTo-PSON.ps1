@@ -1,4 +1,4 @@
-﻿$Testing = $False
+﻿$Testing = $false
 <#
 	.SYNOPSIS
 	
@@ -257,6 +257,8 @@ function ConvertTo-PSON
 		$code += ')'
 		return $code
 	}
+<# Where we begin, at our entry point #>
+
 	if ($TheObject.GetType().Basetype.name -in ('System.Array', 'array') -or
 		$TheObject.GetType().name -eq 'Array')
 	{ . $ArrayParsing $theObject  $depth $avoid }
@@ -264,10 +266,14 @@ function ConvertTo-PSON
 	{
 		Escape-SpecialCharacters $TheObject
 	}
-	elseif ($TheObject.GetType().Basetype.name -eq 'ValueType')
+	elseif ($TheObject.GetType().Basetype.name -in ('ValueType','System.ValueType'))
 	{
 		switch ($TheObject.GetType().name)
 		{
+
+			'DateTime' {
+				"@{'value'='$($TheObject.ToString())';'DisplayHint'='$($TheObject.DisplayHint)';'DateTime'='$($TheObject.DateTime)'}"
+			}
 			'Boolean' {
 				$truth = switch ($TheObject)
 				{
@@ -556,3 +562,4 @@ if ($Testing)
 	}
 	
 }
+
